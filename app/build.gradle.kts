@@ -3,25 +3,23 @@ plugins {
     alias(libs.plugins.jetbrains.kotlin.android)
     id("kotlin-parcelize")
     id("org.jetbrains.kotlin.plugin.serialization") version "2.0.21"
-    id("com.auto.instance.plugin")
+//    id("com.auto.instance.plugin")
+    id("com.reflect.instance.plugin")
     alias(libs.plugins.kotlin.compose)
 }
 
 android {
-    namespace = "com.auto.instance.plugin"
+    namespace = "com.reflect.instance.sample"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.auto.instance.plugin"
+        applicationId = "com.reflect.instance.sample"
         minSdk = 24
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        vectorDrawables {
-            useSupportLibrary = true
-        }
     }
 
     buildTypes {
@@ -34,30 +32,12 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
     kotlinOptions {
-        jvmTarget = "1.8"
+        jvmTarget = "17"
     }
-    buildFeatures {
-        compose = true
-    }
-    composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.1"
-    }
-    packaging {
-        resources {
-            excludes += "/META-INF/{AL2.0,LGPL2.1}"
-        }
-    }
-}
-
-
-modelGenerator {
-    modelPackages = listOf(
-        "com.auto.instance.plugin.models",
-    )
 }
 
 dependencies {

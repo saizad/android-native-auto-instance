@@ -1,6 +1,5 @@
 package com.auto.instance.plugin
 
-import com.android.build.gradle.BaseExtension
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.Plugin
@@ -14,7 +13,6 @@ import org.gradle.api.tasks.compile.JavaCompile
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
 import java.io.File
 import java.net.URLClassLoader
-import kotlin.reflect.KFunction
 import kotlin.reflect.KProperty1
 import kotlin.reflect.full.memberFunctions
 import kotlin.reflect.full.memberProperties
@@ -53,14 +51,14 @@ class ModelInstanceGeneratorPlugin : Plugin<Project> {
             project.extensions.create("modelGenerator", ModelInstanceGeneratorExtension::class.java)
 
         // Register the directory where generated files will be stored
-        val generatedDir = project.rootProject.rootDir.resolve("generated-src/model-instances")
+        val generatedDir = project.buildDir.resolve("generated/model-instances")
 
         generatedDir.resolve("src/main/kotlin").mkdirs()
-        generatedDir.resolve(".generated-marker").createNewFile() // Create empty marker file
 
         // Register the generate task
         val generateTask =
             project.tasks.register("generateModelSamples", GenerateModelSamplesTask::class.java) {
+                println("xxxx -> ${generatedDir.absolutePath}")
                 modelPackages.set(extension.modelPackages)
                 outputDirectory.set(generatedDir)
             }
@@ -82,19 +80,7 @@ class ModelInstanceGeneratorPlugin : Plugin<Project> {
 
         // Find the app project
         val appProject = project.rootProject.findProject(":app")
-        if (appProject != null) {
-            // Add the generated directory to the source sets
-            appProject.afterEvaluate {
-                // For Android projects
-//                appProject.extensions.findByName("android")?.let { androidExt ->
-//                    val androidExtension = androidExt as BaseExtension
-//                    androidExtension.sourceSets.getByName("main") {
-//                        java.srcDir("${project.rootProject.rootDir}/generated-src/model-instances/src/main/kotlin")
-//                    }
-//                    project.logger.lifecycle("Added generated model samples directory to Android source sets")
-//                }
-            }
-        }
+
 
         project.afterEvaluate {
             val compileTaskName = "compileDebugSources"
@@ -115,13 +101,6 @@ class ModelInstanceGeneratorPlugin : Plugin<Project> {
 
                 compileTask.finalizedBy(generateTaskInstance)
             }
-        }
-
-        project.gradle.projectsEvaluated {
-            // Ensure directories exist before any task runs
-            val srcDir = generatedDir.resolve("src/main/kotlin")
-            srcDir.mkdirs()
-            project.logger.lifecycle("Created generated source directory: $srcDir")
         }
     }
 }

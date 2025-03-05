@@ -4,7 +4,7 @@ import kotlin.reflect.KClass
 
 class FakeHelper {
 
-    fun fake(clazz: KClass<Any>, count: Int): List<Any> {
+    fun <T: Any> fake(clazz: KClass<T>, count: Int): List<T> {
         return clazz.fake(count)
     }
 
