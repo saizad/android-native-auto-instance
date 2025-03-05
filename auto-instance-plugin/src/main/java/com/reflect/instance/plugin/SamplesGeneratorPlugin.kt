@@ -1,13 +1,10 @@
-package com.auto.instance.plugin
+package com.reflect.instance.plugin
 
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
-import org.gradle.api.Plugin
 import org.gradle.api.Project
-import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.tasks.Input
-import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.TaskAction
 import org.gradle.api.tasks.compile.JavaCompile
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
@@ -18,15 +15,8 @@ import kotlin.reflect.full.memberFunctions
 import kotlin.reflect.full.memberProperties
 import kotlin.reflect.jvm.isAccessible
 
-//import com.auto.instance.fake
-
-data class MyTestClass(val name: String)
-
-
 fun findCompiledClassDirectories(appProject: Project): List<File> {
     val outputDirs = mutableSetOf<File>()
-//    val pa: Parcelable =
-
     appProject.tasks.withType(KotlinCompilationTask::class.java).forEach { task ->
         outputDirs.addAll(task.outputs.files.files)
     }
@@ -38,82 +28,13 @@ fun findCompiledClassDirectories(appProject: Project): List<File> {
     return outputDirs.filter { it.exists() }
 }
 
-
-open class ModelInstanceGeneratorExtension {
-    var modelPackages: List<String> = emptyList()
-}
-
-class ModelInstanceGeneratorPlugin : Plugin<Project> {
-
-    override fun apply(project: Project) {
-
-        val extension =
-            project.extensions.create("modelGenerator", ModelInstanceGeneratorExtension::class.java)
-
-        // Register the directory where generated files will be stored
-        val generatedDir = project.buildDir.resolve("generated/model-instances")
-
-        generatedDir.resolve("src/main/kotlin").mkdirs()
-
-        // Register the generate task
-        val generateTask =
-            project.tasks.register("generateModelSamples", GenerateModelSamplesTask::class.java) {
-                println("xxxx -> ${generatedDir.absolutePath}")
-                modelPackages.set(extension.modelPackages)
-                outputDirectory.set(generatedDir)
-            }
-
-        // Register the clean task for generated files
-        val cleanGeneratedModelTask = project.tasks.register("cleanGeneratedModelSamples") {
-            group = "build"
-            description = "Cleans the generated model sample instances"
-
-            doLast {
-                if (generatedDir.exists()) {
-                    project.logger.lifecycle("Cleaning generated model samples at: ${generatedDir.absolutePath}")
-                    generatedDir.deleteRecursively()
-                } else {
-                    project.logger.lifecycle("No generated model samples to clean at: ${generatedDir.absolutePath}")
-                }
-            }
-        }
-
-        // Find the app project
-        val appProject = project.rootProject.findProject(":app")
-
-
-        project.afterEvaluate {
-            val compileTaskName = "compileDebugSources"
-            val compileTask = project.tasks.findByName(compileTaskName)
-
-            if (compileTask != null) {
-                val generateTaskInstance = generateTask.get()
-
-                generateTaskInstance.mustRunAfter(compileTask)
-                project.logger.lifecycle("Configured $generateTaskInstance to run after $compileTaskName")
-                project.logger.lifecycle(
-                    "$compileTaskName contains = ${
-                        project.gradle.startParameter.taskNames.contains(
-                            compileTaskName
-                        )
-                    }"
-                )
-
-                compileTask.finalizedBy(generateTaskInstance)
-            }
-        }
-    }
-}
-
 abstract class GenerateModelSamplesTask : DefaultTask() {
     @get:Input
     abstract val modelPackages: ListProperty<String>
 
-    @get:OutputDirectory
-    abstract val outputDirectory: DirectoryProperty
-
     @TaskAction
     fun generate() {
+
         val appProject = project.rootProject.findProject(":app")
         if (appProject == null) {
             logger.error("App project not found")
@@ -136,8 +57,6 @@ abstract class GenerateModelSamplesTask : DefaultTask() {
 
         val modelClassesByPackage = mutableMapOf<String, MutableList<String>>()
 
-        val generatedDir = appProject.buildDir.resolve("generated/model-instances")
-        val sourceDir = generatedDir.resolve("src/main/kotlin")
 
         modelPackages.get().forEach { modelPackage ->
             val packagePath = modelPackage.replace('.', '/')
@@ -165,22 +84,8 @@ abstract class GenerateModelSamplesTask : DefaultTask() {
             }
         }
 
-        val aarFile =
-            project.rootProject.file("reflect-instance/build/outputs/aar/reflect-instance-debug.aar")
-        val tempDir = project.rootProject.buildDir.resolve("extracted-aar")
+        val classesJar = findReflectInstanceJar()
 
-        if (!aarFile.exists()) {
-            throw GradleException("AAR file not found. Run ':reflect-instance:assembleDebug' first.")
-        }
-
-        // Extract AAR
-        project.copy {
-            from(project.zipTree(aarFile))
-            into(tempDir)
-        }
-
-        // Load classes.jar dynamically
-        val classesJar = tempDir.resolve("classes.jar")
         if (classesJar.exists()) {
             val fakeHelperClassLoader =
                 URLClassLoader(arrayOf(classesJar.toURI().toURL()), javaClass.classLoader)
@@ -188,13 +93,17 @@ abstract class GenerateModelSamplesTask : DefaultTask() {
             val instance = targetClass.getDeclaredConstructor().newInstance()
 
             println("Loaded class: ${instance.javaClass.name}")
+            println(
+                "Model Classes: ${
+                    modelClassesByPackage.map { it.key.plus(":${it.value}") }.joinToString { it }
+                }"
+            )
             modelClassesByPackage.forEach { (modelPackage, classNames) ->
                 appProject.generateSampleInstancesForClass(
                     modelPackage,
                     classNames,
                     instance,
                     classLoader,
-                    outputDirectory.get().asFile
                 )
             }
         } else {
@@ -203,6 +112,42 @@ abstract class GenerateModelSamplesTask : DefaultTask() {
 
 
     }
+
+    private fun findReflectInstanceJar(): File {
+        val path = "reflect-instance/build/libs/reflect-instance.jar"
+
+        return try {
+            findReflectInstanceJarFromAAR()
+        } catch (e: Exception) {
+            val reflectInstanceJar = project.rootProject.file(path)
+            if (!reflectInstanceJar.exists()) {
+                project.logger.error("Reflect Instance JAR not found at: $path")
+                throw GradleException("Reflect Instance not found! Searched location: ${reflectInstanceJar.absolutePath}")
+            }
+
+            project.logger.lifecycle("Using Reflect Instance JAR from: ${reflectInstanceJar.absolutePath}")
+            reflectInstanceJar
+        }
+    }
+
+
+    @Throws(GradleException::class)
+    private fun findReflectInstanceJarFromAAR(): File {
+        val aarFile =
+            project.rootProject.file("reflect-instance/build/outputs/aar/reflect-instance-debug.aar")
+        val tempDir = project.rootProject.buildDir.resolve("extracted-aar")
+
+        if (!aarFile.exists()) {
+            throw GradleException("AAR file not found. Run ':reflect-instance:assembleDebug' first.")
+        }
+
+        project.copy {
+            from(project.zipTree(aarFile))
+            into(tempDir)
+        }
+
+        return tempDir.resolve("classes.jar")
+    }
 }
 
 private fun Project.generateSampleInstancesForClass(
@@ -210,44 +155,38 @@ private fun Project.generateSampleInstancesForClass(
     classNames: MutableList<String>,
     fakeHelper: Any,
     classLoader: URLClassLoader,
-    outputDirectory: File
 ) {
+    logger.lifecycle(classNames.joinToString { it })
+    val generatedDir = File(project.buildDir, "generated/ksp/debug/kotlin/com/reflect/instance/sample")
+
+    val generatedFiles = generatedDir.listFiles()?.filter { it.isFile && it.extension == "kt" } ?: emptyList()
+
+    // Step 1: Modify instances in the files
     classNames.forEach { className ->
         try {
             val fullClassName = "$modelPackage.$className"
             val clazz = Class.forName(fullClassName, true, classLoader).kotlin
-            val sourceDir = outputDirectory.resolve("src/main/kotlin")
+            val fakeFunction = fakeHelper::class.memberFunctions.find { it.name == "fake" }
+            fakeFunction?.isAccessible = true
+            val instances = fakeFunction!!.call(fakeHelper, clazz, 10) as List<Any>
+            val instance = instances.first()
 
-            val packageDir = sourceDir.resolve(modelPackage.replace('.', '/'))
-            packageDir.mkdirs()
+            logger.lifecycle("~~ $fullClassName")
 
-            val sampleInstancesFile = packageDir.resolve("${className}Sample.kt")
+            generatedFiles.forEach { generatedFile ->
+                val originalContent = generatedFile.readText()
+                val instanceTypeName = instance::class.simpleName!!
 
-            val fileContent = buildString {
-                appendLine("package $modelPackage")
-                appendLine()
-                appendLine("// Auto-generated sample instances for $className")
-                appendLine("// Generated on: ${java.time.LocalDateTime.now()}")
-                appendLine()
-                appendLine("object ${className}Sample {")
-
-                val fakeFunction = fakeHelper::class.memberFunctions.find { it.name == "fake" }
-                fakeFunction?.isAccessible = true
-
-                val instances = fakeFunction!!.call(fakeHelper, clazz, 10) as List<Any>
-
-                instances.forEachIndexed { index, instance ->
-                    val instanceName = "sample${index + 1}"
-                    appendLine("    val $instanceName: $className = ${objectToString(instance)}")
+                val typeRegex = Regex("""val\s+(\w+)\s*:\s*($instanceTypeName)\s*=\s*(?:.*\s+as\s+\2)?""")
+                val modifiedContent = originalContent.replace(typeRegex) { matchResult ->
+                    val valName = matchResult.groupValues[1]
+                    val typeName = matchResult.groupValues[2]
+                    "val $valName: $typeName = ${objectToString(instance)}"
                 }
 
-                appendLine("    val allSamples: List<$className> = listOf(${instances.indices.joinToString { "sample${it + 1}" }})")
-                appendLine("}")
+                generatedFile.writeText(modifiedContent)
+                println("Modified: ${generatedFile.absolutePath}")
             }
-
-            sampleInstancesFile.writeText(fileContent)
-            logger.lifecycle("Generated: ${sampleInstancesFile.absolutePath}")
-
         } catch (e: NoClassDefFoundError) {
             logger.warn("Skipping class $className due to missing dependency: ${e.message}")
         } catch (e: Exception) {
@@ -255,7 +194,39 @@ private fun Project.generateSampleInstancesForClass(
             e.printStackTrace()
         }
     }
+
+    // Step 2: Remove all existing imports
+    generatedFiles.forEach { generatedFile ->
+        val contentWithoutImports = generatedFile.readText().replace(Regex("""import\s+[a-zA-Z0-9_.]+"""), "").trim()
+        generatedFile.writeText(contentWithoutImports)
+    }
+
+    // Step 3: Re-add package declaration and imports
+    generatedFiles.forEach { generatedFile ->
+        val originalContent = generatedFile.readText()
+
+        val packageRegex = Regex("""^package\s+[a-zA-Z0-9_.]+""", RegexOption.MULTILINE)
+        val packageMatch = packageRegex.find(originalContent)
+        val packageDeclaration = packageMatch?.value ?: "package com.reflect.instance.sample"
+
+        val contentWithoutPackage = originalContent.replace(packageRegex, "").trim()
+
+        val newImports = classNames.joinToString("\n") { "import $modelPackage.$it" }
+
+        val newContent = buildString {
+            appendLine(packageDeclaration)
+            appendLine()
+            appendLine(newImports)
+            appendLine()
+            append(contentWithoutPackage)
+        }.trim()
+
+        generatedFile.writeText(newContent)
+        println("Updated imports: ${generatedFile.absolutePath}")
+    }
 }
+
+
 
 fun objectToString(obj: Any?): String {
     if (obj == null) return "null"

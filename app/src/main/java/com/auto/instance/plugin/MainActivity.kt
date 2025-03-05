@@ -11,9 +11,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import com.auto.instance.plugin.models.SchoolClassSection
 import com.auto.instance.plugin.ui.theme.AutoInstancePluginTheme
 import com.reflect.instance.sample.ProfilePreview
 import com.reflect.instance.sample.ProfilePreviewInjector
+import com.reflect.instance.sample.TeacherPreview
+import com.reflect.instance.sample.TeacherPreviewInjector
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -45,9 +48,9 @@ fun Greeting(name: String, modifier: Modifier = Modifier) {
 fun GreetingPreview() {
     val profilePreview = ProfilePreview()
     ProfilePreviewInjector.inject(profilePreview)
-//    profilePreview.displayProfile()
-
+    val teacherPreview = TeacherPreview()
+    TeacherPreviewInjector.inject(teacherPreview)
     AutoInstancePluginTheme {
-        Greeting("Android ${profilePreview.profile}")
+        Greeting("Android ${profilePreview.school}")
     }
 }

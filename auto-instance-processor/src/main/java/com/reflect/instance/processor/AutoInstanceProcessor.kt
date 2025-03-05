@@ -1,14 +1,23 @@
 package com.reflect.instance.processor
 
-import com.google.devtools.ksp.processing.*
-import com.google.devtools.ksp.symbol.*
+import com.google.devtools.ksp.processing.CodeGenerator
+import com.google.devtools.ksp.processing.Dependencies
+import com.google.devtools.ksp.processing.KSPLogger
+import com.google.devtools.ksp.processing.Resolver
+import com.google.devtools.ksp.processing.SymbolProcessor
+import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
+import com.google.devtools.ksp.processing.SymbolProcessorProvider
+import com.google.devtools.ksp.symbol.KSAnnotated
+import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.validate
 import com.reflect.instance.annotations.AutoInject
 import com.reflect.instance.annotations.InjectInstance
-import com.squareup.kotlinpoet.*
+import com.squareup.kotlinpoet.ClassName
+import com.squareup.kotlinpoet.FileSpec
+import com.squareup.kotlinpoet.FunSpec
+import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.ksp.toClassName
 import com.squareup.kotlinpoet.ksp.writeTo
-import java.io.OutputStream
 
 class AutoInstanceProcessor(
     private val codeGenerator: CodeGenerator,
@@ -17,24 +26,28 @@ class AutoInstanceProcessor(
 ) : SymbolProcessor {
 
     override fun process(resolver: Resolver): List<KSAnnotated> {
+        logger.logging("resolver: $resolver")
+
         val injectInstanceSymbols = resolver
             .getSymbolsWithAnnotation(InjectInstance::class.qualifiedName!!)
             .filterIsInstance<KSClassDeclaration>()
             .filter { it.validate() }
             .toList()
 
+        println("injectInstanceSymbols: $injectInstanceSymbols")
         if (injectInstanceSymbols.isEmpty()) {
             return emptyList()
         }
 
         injectInstanceSymbols.forEach { classDeclaration ->
-            processClass(classDeclaration)
+            println("classDeclaration: $classDeclaration")
+            processClass(classDeclaration, resolver)
         }
 
         return injectInstanceSymbols.filterNot { it.validate() }.toList()
     }
 
-    private fun processClass(classDeclaration: KSClassDeclaration) {
+    private fun processClass(classDeclaration: KSClassDeclaration, resolver: Resolver) {
         val className = classDeclaration.simpleName.asString()
         val packageName = classDeclaration.packageName.asString()
         val generatedClassName = "${className}Injector"
@@ -58,21 +71,25 @@ class AutoInstanceProcessor(
         val fileSpec = FileSpec.builder(packageName, generatedClassName)
             .addType(
                 TypeSpec.objectBuilder(generatedClassName)
+                    .addKdoc("Generated on: ${java.time.LocalDateTime.now()}")
                     .addFunction(
                         FunSpec.builder("inject")
                             .addParameter("target", classDeclaration.toClassName())
-                            .addStatement("val fakeHelper = %T()", ClassName("com.reflect.instance", "FakeHelper"))
                             .apply {
                                 autoInjectProperties.forEach { property ->
                                     val propertyName = property.simpleName.asString()
                                     val propertyType = property.type.resolve()
-                                    val propertyTypeClassName = propertyType.declaration.qualifiedName?.asString() ?: ""
-                                    
+                                    val type = propertyType.declaration.simpleName.getShortName()
                                     addStatement(
-                                        "target.%L = fakeHelper.fake(%L::class, 1)[0] as %L",
+                                        "val %L: %T = Any() as %L",
                                         propertyName,
-                                        propertyTypeClassName,
-                                        propertyTypeClassName
+                                        ClassName(propertyType.declaration.qualifiedName?.getQualifier().toString(), type),
+                                        type
+                                    )
+                                    addStatement(
+                                        "target.%L = %L",
+                                        propertyName,
+                                        propertyName,
                                     )
                                 }
                             }

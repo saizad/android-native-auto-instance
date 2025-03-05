@@ -6,4 +6,4 @@ package com.auto.instance.plugin.models
 
 //@Parcelize
 //@Serializable
-data class School(val id: Int)// : Parcelable
+data class School(val id: Int, val title: String, val x: String)// : Parcelable

@@ -7,7 +7,11 @@ plugins {
     id("com.reflect.instance.plugin")
     alias(libs.plugins.kotlin.compose)
 }
-
+modelGenerator {
+    modelPackages = listOf(
+        "com.auto.instance.plugin.models",
+    )
+}
 android {
     namespace = "com.reflect.instance.sample"
     compileSdk = 35
