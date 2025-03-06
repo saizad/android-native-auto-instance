@@ -1,7 +1,17 @@
 plugins {
     `kotlin-dsl`
     `java-gradle-plugin`
-    id("maven-publish")
+    id("maven-publish")  // ✅ Correct way to apply the plugin in Gradle Kotlin DSL
+}
+
+// Set group and version explicitly for this project
+group = "com.github.saizad"
+version = "1.0.0"
+
+// For JitPack compatibility
+val gitVersionTag: String? = System.getenv("VERSION")
+if (gitVersionTag != null) {
+    version = gitVersionTag
 }
 
 java {
@@ -29,5 +39,54 @@ gradlePlugin {
             id = "com.reflect.instance.model.plugin"
             implementationClass = "com.reflect.instance.plugin.ModelInstanceGeneratorExtension"
         }
+    }
+    // Use the plugin maven publication
+    isAutomatedPublishing = true
+}
+
+// Configure publishing for JitPack
+publishing {
+    publications {
+        // Create a publication for JitPack
+        create<MavenPublication>("jitpack") {
+            groupId = "com.github.saizad.android-native-auto-instance"
+            artifactId = "auto-instance-plugin"
+            version = project.version.toString()
+            
+            from(components["java"])
+            
+            // Add pom information required by JitPack
+            pom {
+                name.set("Auto Instance Plugin")
+                description.set("Gradle plugin for auto instance generation")
+                url.set("https://github.com/saizad/android-native-auto-instance")
+                
+                licenses {
+                    license {
+                        name.set("The Apache License, Version 2.0")
+                        url.set("http://www.apache.org/licenses/LICENSE-2.0.txt")
+                    }
+                }
+                
+                developers {
+                    developer {
+                        id.set("saizad")
+                        name.set("Sa Zad")
+                    }
+                }
+            }
+        }
+    }
+    
+    repositories {
+        mavenLocal()
+    }
+}
+
+// Add a task to explicitly publish the auto-instance-plugin to JitPack
+tasks.register("publishPluginToJitPack") {
+    dependsOn("publishJitpackPublicationToMavenLocal")
+    doLast {
+        println("Published auto-instance-plugin to JitPack")
     }
 }

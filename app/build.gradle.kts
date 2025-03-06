@@ -6,11 +6,17 @@ plugins {
     id("com.reflect.instance.plugin")
     alias(libs.plugins.kotlin.compose)
 }
+
+// Apply the plugin manually
+// apply(plugin = "com.reflect.instance.plugin")
+
+// Comment out the modelGenerator block for now
 modelGenerator {
     modelPackages = listOf(
         "com.auto.instance.plugin.models",
     )
 }
+
 android {
     namespace = "com.reflect.instance.sample"
     compileSdk = 35
@@ -41,7 +47,7 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
-    flavorDimensions("default")
+    flavorDimensions += "default"
 
     productFlavors {
         create("fakeData") {
@@ -79,7 +85,4 @@ dependencies {
 
     testImplementation(libs.kotlin.reflect)
     implementation(libs.jetbrains.kotlin.reflect)
-
-//    implementation("com.github.saizad:android-native-auto-instance:aabaa027e7")
-
 }
