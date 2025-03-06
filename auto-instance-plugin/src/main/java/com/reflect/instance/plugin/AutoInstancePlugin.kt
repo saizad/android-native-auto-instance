@@ -22,10 +22,6 @@ class AutoInstancePlugin : Plugin<Project> {
         val extension =
             project.extensions.create("modelGenerator", ModelInstanceGeneratorExtension::class.java)
 
-        val generatedDir = project.buildDir.resolve("generated/model-instances")
-
-        generatedDir.resolve("src/main/kotlin").mkdirs()
-
         val generateTask =
             project.tasks.register("generateModelSamples", GenerateModelSamplesTask::class.java) {
                 modelPackages.set(extension.modelPackages)
