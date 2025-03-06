@@ -65,26 +65,6 @@ publishing {
                         name.set("Sa Zad")
                     }
                 }
-                
-                // Define dependencies in the POM
-                withXml {
-                    val root = asNode()
-                    val dependenciesNode = root.appendNode("dependencies")
-                    
-                    // Add auto-instance-annotations dependency
-                    val annotationsDep = dependenciesNode.appendNode("dependency")
-                    annotationsDep.appendNode("groupId", "com.github.saizad.android-native-auto-instance")
-                    annotationsDep.appendNode("artifactId", "auto-instance-annotations")
-                    annotationsDep.appendNode("version", project.version)
-                    annotationsDep.appendNode("scope", "compile")
-                    
-                    // Add reflect-instance dependency
-                    val reflectDep = dependenciesNode.appendNode("dependency")
-                    reflectDep.appendNode("groupId", "com.github.saizad.android-native-auto-instance")
-                    reflectDep.appendNode("artifactId", "reflect-instance")
-                    reflectDep.appendNode("version", project.version)
-                    reflectDep.appendNode("scope", "compile")
-                }
             }
         }
     }
