@@ -27,7 +27,7 @@ gradlePlugin {
 
         create("modelInstanceGeneratorPlugin") {
             id = "com.reflect.instance.model.plugin"
-            implementationClass = "com.reflect.instance.plugin.ModelInstanceGeneratorPlugin"
+            implementationClass = "com.reflect.instance.plugin.ModelInstanceGeneratorExtension"
         }
     }
 }
