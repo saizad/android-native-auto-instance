@@ -11,10 +11,8 @@ open class ModelInstanceGeneratorExtension {
 
 class AutoInstancePlugin : Plugin<Project> {
     override fun apply(project: Project) {
-        // Apply KSP plugin
         project.plugins.apply("com.google.devtools.ksp")
         
-        // Add dependencies
         project.dependencies {
             add("implementation", project.project(":auto-instance-annotations"))
             add("ksp", project.project(":auto-instance-processor"))
@@ -24,19 +22,9 @@ class AutoInstancePlugin : Plugin<Project> {
         val extension =
             project.extensions.create("modelGenerator", ModelInstanceGeneratorExtension::class.java)
 
-        // Register the directory where generated files will be stored
         val generatedDir = project.buildDir.resolve("generated/model-instances")
 
         generatedDir.resolve("src/main/kotlin").mkdirs()
-
-        project.afterEvaluate {
-            project.afterEvaluate {
-                project.tasks.matching { it.name == "compileDebugSources" }.configureEach {
-                    dependsOn("kspDebugKotlin")
-                    mustRunAfter("kspDebugKotlin")
-                }
-            }
-        }
 
         val generateTask =
             project.tasks.register("generateModelSamples", GenerateModelSamplesTask::class.java) {
@@ -44,18 +32,23 @@ class AutoInstancePlugin : Plugin<Project> {
             }
 
         project.afterEvaluate {
-            val compileTaskName = "compileDebugSources"
-            val compileTask = project.tasks.findByName(compileTaskName)
-            if (compileTask != null) {
+            val compileTasks = project.tasks.matching { it.name.contains("compile") && it.name.contains("Sources") }
+            val kspTasks = project.tasks.matching { it.name.startsWith("ksp") && it.name.endsWith("Kotlin") }
+
+            compileTasks.filterNotNull().forEach { compileTask ->
                 val generateTaskInstance = generateTask.get()
+
+                // Ensure all KSP tasks run before compiling sources
+                kspTasks.forEach { kspTask ->
+                    compileTask.dependsOn(kspTask)
+                    compileTask.mustRunAfter(kspTask)
+                }
+
+                // Ensure generateModelSamples runs after compilation
                 generateTaskInstance.mustRunAfter(compileTask)
                 compileTask.finalizedBy(generateTaskInstance)
             }
         }
+
     }
 }
-
-// Extension function to make the dependencies block more readable
-fun DependencyHandler.ksp(dependencyNotation: Any) {
-    add("ksp", dependencyNotation)
-} 

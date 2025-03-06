@@ -11,7 +11,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import com.auto.instance.plugin.models.SchoolClassSection
 import com.auto.instance.plugin.ui.theme.AutoInstancePluginTheme
 import com.reflect.instance.sample.ProfilePreview
 import com.reflect.instance.sample.ProfilePreviewInjector

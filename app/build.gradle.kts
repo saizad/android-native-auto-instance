@@ -42,6 +42,20 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+    flavorDimensions("default")
+
+    productFlavors {
+        create("fakeData") {
+            versionName = "fake-data"
+            applicationIdSuffix = ".fake.data"
+        }
+
+        create("dev") {
+            versionName = "dev"
+            applicationIdSuffix = ".dev"
+        }
+    }
+
 }
 
 dependencies {

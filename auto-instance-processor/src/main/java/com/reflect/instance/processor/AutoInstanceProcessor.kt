@@ -26,7 +26,6 @@ class AutoInstanceProcessor(
 ) : SymbolProcessor {
 
     override fun process(resolver: Resolver): List<KSAnnotated> {
-        logger.logging("resolver: $resolver")
 
         val injectInstanceSymbols = resolver
             .getSymbolsWithAnnotation(InjectInstance::class.qualifiedName!!)
@@ -34,13 +33,12 @@ class AutoInstanceProcessor(
             .filter { it.validate() }
             .toList()
 
-        println("injectInstanceSymbols: $injectInstanceSymbols")
+
         if (injectInstanceSymbols.isEmpty()) {
             return emptyList()
         }
 
         injectInstanceSymbols.forEach { classDeclaration ->
-            println("classDeclaration: $classDeclaration")
             processClass(classDeclaration, resolver)
         }
 
@@ -111,4 +109,4 @@ class AutoInstanceProcessorProvider : SymbolProcessorProvider {
             environment.options
         )
     }
-} 
+}

@@ -92,16 +92,10 @@ abstract class GenerateModelSamplesTask : DefaultTask() {
             val targetClass = fakeHelperClassLoader.loadClass("com.reflect.instance.FakeHelper")
             val instance = targetClass.getDeclaredConstructor().newInstance()
 
-            println("Loaded class: ${instance.javaClass.name}")
-            println(
-                "Model Classes: ${
-                    modelClassesByPackage.map { it.key.plus(":${it.value}") }.joinToString { it }
-                }"
-            )
             modelClassesByPackage.forEach { (modelPackage, classNames) ->
                 appProject.generateSampleInstancesForClass(
                     modelPackage,
-                    classNames,
+                    classNames.distinct(),
                     instance,
                     classLoader,
                 )
@@ -109,35 +103,23 @@ abstract class GenerateModelSamplesTask : DefaultTask() {
         } else {
             throw GradleException("classes.jar not found inside extracted AAR!")
         }
-
-
     }
 
     private fun findReflectInstanceJar(): File {
-        val path = "reflect-instance/build/libs/reflect-instance.jar"
-
         return try {
             findReflectInstanceJarFromAAR()
         } catch (e: Exception) {
-            val reflectInstanceJar = project.rootProject.file(path)
-            if (!reflectInstanceJar.exists()) {
-                project.logger.error("Reflect Instance JAR not found at: $path")
-                throw GradleException("Reflect Instance not found! Searched location: ${reflectInstanceJar.absolutePath}")
-            }
-
-            project.logger.lifecycle("Using Reflect Instance JAR from: ${reflectInstanceJar.absolutePath}")
-            reflectInstanceJar
+            val jarFile = findLatestJar("reflect-instance/build/libs")
+            jarFile ?: throw GradleException("Reflect Instance JAR not found!")
         }
     }
 
-
     @Throws(GradleException::class)
     private fun findReflectInstanceJarFromAAR(): File {
-        val aarFile =
-            project.rootProject.file("reflect-instance/build/outputs/aar/reflect-instance-debug.aar")
+        val aarFile = findLatestAAR("reflect-instance/build/outputs/aar")
         val tempDir = project.rootProject.buildDir.resolve("extracted-aar")
 
-        if (!aarFile.exists()) {
+        if (aarFile == null || !aarFile.exists()) {
             throw GradleException("AAR file not found. Run ':reflect-instance:assembleDebug' first.")
         }
 
@@ -146,58 +128,110 @@ abstract class GenerateModelSamplesTask : DefaultTask() {
             into(tempDir)
         }
 
-        return tempDir.resolve("classes.jar")
+        return tempDir.resolve("classes.jar").takeIf { it.exists() }
+            ?: throw GradleException("Extracted classes.jar not found in AAR")
     }
+
+    private fun findLatestJar(dir: String): File? {
+        return project.rootProject.file(dir)
+            .takeIf { it.exists() }
+            ?.listFiles { file -> file.extension == "jar" }
+            ?.maxByOrNull { it.lastModified() }
+    }
+
+    private fun findLatestAAR(dir: String): File? {
+        return project.rootProject.file(dir)
+            .takeIf { it.exists() }
+            ?.listFiles { file -> file.extension == "aar" }
+            ?.maxByOrNull { it.lastModified() }
+    }
+
 }
+
+private fun Project.getGeneratedKspDir(): File {
+    val variant = getBuildVariant()
+    val kspDir = project.buildDir.resolve("generated/ksp")
+
+    // Find a directory that matches the variant dynamically
+    val matchedVariantDir =
+        kspDir.listFiles()?.firstOrNull { it.name.contains(variant, ignoreCase = true) }
+
+    return matchedVariantDir?.resolve("kotlin/com/reflect/instance/sample")
+        ?: throw GradleException("Could not determine the correct KSP directory for variant: $variant")
+}
+
+private fun Project.getBuildVariant(): String {
+    val defaultVariant = "debug" // Fallback option
+    return project.gradle.startParameter.taskNames
+        .onEach { println("Build Variant $it") }
+        .map { it.substringAfterLast(":") }
+        .firstOrNull { it.startsWith("compile") && it.endsWith("Sources") }
+        ?.removePrefix("compile")
+        ?.removeSuffix("Sources")
+        ?: defaultVariant
+}
+
 
 private fun Project.generateSampleInstancesForClass(
     modelPackage: String,
-    classNames: MutableList<String>,
+    classNames: List<String>,
     fakeHelper: Any,
     classLoader: URLClassLoader,
 ) {
-    logger.lifecycle(classNames.joinToString { it })
-    val generatedDir = File(project.buildDir, "generated/ksp/debug/kotlin/com/reflect/instance/sample")
+    val generatedDir = getGeneratedKspDir()
 
-    val generatedFiles = generatedDir.listFiles()?.filter { it.isFile && it.extension == "kt" } ?: emptyList()
+    println("generatedDir -> $generatedDir")
+    val generatedFiles =
+        generatedDir.listFiles()?.filter { it.isFile && it.extension == "kt" } ?: emptyList()
 
     // Step 1: Modify instances in the files
-    classNames.forEach { className ->
-        try {
-            val fullClassName = "$modelPackage.$className"
-            val clazz = Class.forName(fullClassName, true, classLoader).kotlin
-            val fakeFunction = fakeHelper::class.memberFunctions.find { it.name == "fake" }
-            fakeFunction?.isAccessible = true
-            val instances = fakeFunction!!.call(fakeHelper, clazz, 10) as List<Any>
-            val instance = instances.first()
+    generatedFiles.forEach { generatedFile ->
+        println("Generated File -> ${generatedFile.absolutePath}")
 
-            logger.lifecycle("~~ $fullClassName")
+        classNames.forEach { className ->
+            try {
+                val fullClassName = "$modelPackage.$className"
+                logger.lifecycle("~~ $fullClassName")
+                val clazz = Class.forName(fullClassName, true, classLoader).kotlin
+                val fakeFunction = fakeHelper::class.memberFunctions.find { it.name == "fake" }
+                fakeFunction?.isAccessible = true
+                val instances = fakeFunction!!.call(fakeHelper, clazz, 10) as List<Any>
+                val instance = instances.first()
 
-            generatedFiles.forEach { generatedFile ->
+
                 val originalContent = generatedFile.readText()
                 val instanceTypeName = instance::class.simpleName!!
 
-                val typeRegex = Regex("""val\s+(\w+)\s*:\s*($instanceTypeName)\s*=\s*(?:.*\s+as\s+\2)?""")
-                val modifiedContent = originalContent.replace(typeRegex) { matchResult ->
-                    val valName = matchResult.groupValues[1]
-                    val typeName = matchResult.groupValues[2]
-                    "val $valName: $typeName = ${objectToString(instance)}"
+                val typeRegex =
+                    Regex("""val\s+(\w+)\s*:\s*($instanceTypeName)\s*=\s*(?:.*\s+as\s+\2)?""")
+
+
+                val matches = typeRegex.findAll(originalContent)
+                var modifiedContent = originalContent
+
+                matches.forEachIndexed { index, match ->
+                    val valName = match.groupValues[1]
+                    val typeName = match.groupValues[2]
+                    val replacement =
+                        "val $valName: $typeName = ${objectToString(instances[index])}"
+                    modifiedContent = modifiedContent.replace(match.value, replacement)
                 }
 
                 generatedFile.writeText(modifiedContent)
-                println("Modified: ${generatedFile.absolutePath}")
+
+            } catch (e: NoClassDefFoundError) {
+                logger.warn("Skipping class $className due to missing dependency: ${e.message}")
+            } catch (e: Exception) {
+                logger.error("Error processing class $className: ${e.message}")
+                e.printStackTrace()
             }
-        } catch (e: NoClassDefFoundError) {
-            logger.warn("Skipping class $className due to missing dependency: ${e.message}")
-        } catch (e: Exception) {
-            logger.error("Error processing class $className: ${e.message}")
-            e.printStackTrace()
         }
     }
 
     // Step 2: Remove all existing imports
     generatedFiles.forEach { generatedFile ->
-        val contentWithoutImports = generatedFile.readText().replace(Regex("""import\s+[a-zA-Z0-9_.]+"""), "").trim()
+        val contentWithoutImports =
+            generatedFile.readText().replace(Regex("""import\s+[a-zA-Z0-9_.]+"""), "").trim()
         generatedFile.writeText(contentWithoutImports)
     }
 
@@ -222,10 +256,9 @@ private fun Project.generateSampleInstancesForClass(
         }.trim()
 
         generatedFile.writeText(newContent)
-        println("Updated imports: ${generatedFile.absolutePath}")
+//        println("Updated imports: ${generatedFile.absolutePath}")
     }
 }
-
 
 
 fun objectToString(obj: Any?): String {

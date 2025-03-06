@@ -13,4 +13,7 @@ class ProfilePreview {
 
     @AutoInject
     lateinit var token: Token
+
+    @AutoInject
+    lateinit var tkn: Token
 } 
