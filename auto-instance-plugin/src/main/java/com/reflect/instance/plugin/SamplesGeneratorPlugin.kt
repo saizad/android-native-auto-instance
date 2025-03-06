@@ -195,8 +195,7 @@ private fun Project.generateSampleInstancesForClass(
                 val clazz = Class.forName(fullClassName, true, classLoader).kotlin
                 val fakeFunction = fakeHelper::class.memberFunctions.find { it.name == "fake" }
                 fakeFunction?.isAccessible = true
-                val instances = fakeFunction!!.call(fakeHelper, clazz, 10) as List<Any>
-                val instance = instances.first()
+                var instance = (fakeFunction!!.call(fakeHelper, clazz, 1) as List<Any>).first()
 
 
                 val originalContent = generatedFile.readText()
@@ -212,8 +211,30 @@ private fun Project.generateSampleInstancesForClass(
                 matches.forEachIndexed { index, match ->
                     val valName = match.groupValues[1]
                     val typeName = match.groupValues[2]
+                    instance = if(index > 0) {
+                        (fakeFunction.call(fakeHelper, clazz, 1) as List<Any>).first()
+                    } else {
+                        instance
+                    }
                     val replacement =
-                        "val $valName: $typeName = ${objectToString(instances[index])}"
+                        "val $valName: $typeName = ${objectToString(instance)}"
+                    modifiedContent = modifiedContent.replace(match.value, replacement)
+                }
+
+
+                val listTypeRegex = Regex(
+                    """val\s+(\w+)\s*:\s*List<($instanceTypeName)>\s*=\s*List\((\d+)\)\s*\{\s*Any\(\)\s+as\s+(\2)\s*}"""
+                )
+                val listMatches = listTypeRegex.findAll(originalContent)
+
+                listMatches.forEachIndexed { index, match ->
+                    val valName = match.groupValues[1]  // Variable name (e.g., "tkn")
+                    val typeName = match.groupValues[2] // Type name (e.g., "Token")
+                    val listSize = match.groupValues[3].toInt() // Extracts the size (e.g., 2)
+
+                    // Generate a list of instances dynamically
+                    val replacement = "val $valName: List<$typeName> = ${objectToString(fakeFunction.call(fakeHelper, clazz, listSize) as List<Any>)}"
+
                     modifiedContent = modifiedContent.replace(match.value, replacement)
                 }
 
@@ -245,7 +266,9 @@ private fun Project.generateSampleInstancesForClass(
 
         val contentWithoutPackage = originalContent.replace(packageRegex, "").trim()
 
-        val newImports = classNames.joinToString("\n") { "import $modelPackage.$it" }
+        val newImports = classNames
+            .filter { "$" !in it }  // Exclude nested/companion/serializer classes
+            .joinToString("\n") { "import $modelPackage.$it" }
 
         val newContent = buildString {
             appendLine(packageDeclaration)

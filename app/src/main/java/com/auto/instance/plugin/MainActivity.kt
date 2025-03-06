@@ -50,6 +50,6 @@ fun GreetingPreview() {
     val teacherPreview = TeacherPreview()
     TeacherPreviewInjector.inject(teacherPreview)
     AutoInstancePluginTheme {
-        Greeting("Android ${profilePreview.school}")
+        Greeting("Android(${profilePreview.token}) ${profilePreview.tkn.size}")
     }
 }

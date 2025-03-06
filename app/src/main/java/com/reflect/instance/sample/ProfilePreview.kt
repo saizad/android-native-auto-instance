@@ -15,5 +15,13 @@ class ProfilePreview {
     lateinit var token: Token
 
     @AutoInject
-    lateinit var tkn: Token
+    lateinit var token1: Token
+    @AutoInject(count = 12)
+    lateinit var tkn: List<Token>
+    @AutoInject(count = 5)
+    lateinit var tkn1: List<Token>
+    @AutoInject(count = 2)
+    lateinit var tkn2: List<Token>
+
+
 } 

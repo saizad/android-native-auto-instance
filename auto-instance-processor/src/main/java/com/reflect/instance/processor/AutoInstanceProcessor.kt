@@ -75,20 +75,69 @@ class AutoInstanceProcessor(
                             .addParameter("target", classDeclaration.toClassName())
                             .apply {
                                 autoInjectProperties.forEach { property ->
+
+                                    addStatement("")
                                     val propertyName = property.simpleName.asString()
                                     val propertyType = property.type.resolve()
-                                    val type = propertyType.declaration.simpleName.getShortName()
-                                    addStatement(
-                                        "val %L: %T = Any() as %L",
-                                        propertyName,
-                                        ClassName(propertyType.declaration.qualifiedName?.getQualifier().toString(), type),
-                                        type
-                                    )
-                                    addStatement(
-                                        "target.%L = %L",
-                                        propertyName,
-                                        propertyName,
-                                    )
+                                    
+                                    // Get annotation parameters
+                                    val annotation = property.annotations.first { 
+                                        it.shortName.asString() == "AutoInject" && 
+                                        it.annotationType.resolve().declaration.qualifiedName?.asString() == AutoInject::class.qualifiedName
+                                    }
+                                    
+                                    val count = annotation.arguments
+                                        .find { it.name?.asString() == "count" }
+                                        ?.value as? Int ?: 1
+                                        
+                                    val source = annotation.arguments
+                                        .find { it.name?.asString() == "source" }
+                                        ?.value as? String ?: ""
+                                    
+                                    // Check if the property type is a List
+                                    val isList = propertyType.declaration.qualifiedName?.asString() == "kotlin.collections.List"
+                                    
+                                    if (isList) {
+                                        // Handle List type
+                                        val typeArg = propertyType.arguments.firstOrNull()?.type?.resolve()
+                                        if (typeArg != null) {
+                                            val argType = typeArg.declaration.qualifiedName?.asString() ?: ""
+                                            val argShortName = typeArg.declaration.simpleName.asString()
+
+                                            addStatement(
+                                                "val %L: List<%T> = List(%L) { Any() as %T }",
+                                                propertyName,
+                                                ClassName(
+                                                    argType.substringBeforeLast(".$argShortName"),
+                                                    argShortName
+                                                ),
+                                                count,
+                                                ClassName(
+                                                    argType.substringBeforeLast(".$argShortName"),
+                                                    argShortName
+                                                )
+                                            )
+
+                                            addStatement(
+                                                "target.%L = %L",
+                                                propertyName,
+                                                propertyName,
+                                            )
+                                        }
+                                    } else {
+                                        val type = propertyType.declaration.simpleName.getShortName()
+                                        addStatement(
+                                            "val %L: %T = Any() as %L",
+                                            propertyName,
+                                            ClassName(propertyType.declaration.qualifiedName?.getQualifier().toString(), type),
+                                            type
+                                        )
+                                        addStatement(
+                                            "target.%L = %L",
+                                            propertyName,
+                                            propertyName,
+                                        )
+                                    }
                                 }
                             }
                             .build()
