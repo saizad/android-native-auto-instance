@@ -109,7 +109,7 @@ abstract class GenerateModelSamplesTask : DefaultTask() {
         return try {
             findReflectInstanceJarFromAAR()
         } catch (e: Exception) {
-            val jarFile = findLatestJar("reflect-instance/build/libs")
+            val jarFile = findLatestJar("reflect-instance/build/libs").also { println("%%^ -> ${it?.absolutePath}") }
             jarFile ?: throw GradleException("Reflect Instance JAR not found!")
         }
     }
@@ -136,7 +136,7 @@ abstract class GenerateModelSamplesTask : DefaultTask() {
         return project.rootProject.file(dir)
             .takeIf { it.exists() }
             ?.listFiles { file -> file.extension == "jar" }
-            ?.maxByOrNull { it.lastModified() }
+            ?.minByOrNull { it.lastModified() }
     }
 
     private fun findLatestAAR(dir: String): File? {

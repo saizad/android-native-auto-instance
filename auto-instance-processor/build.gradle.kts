@@ -1,10 +1,12 @@
 plugins {
     kotlin("jvm")
+    id("maven-publish")
 }
 
 java {
     sourceCompatibility = JavaVersion.VERSION_17
     targetCompatibility = JavaVersion.VERSION_17
+    withSourcesJar()
 }
 
 dependencies {
@@ -22,4 +24,72 @@ dependencies {
     testImplementation("com.github.tschuchortdev:kotlin-compile-testing-ksp:1.5.0")
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlin:kotlin-reflect:1.8.0")
+}
+
+// Set group and version explicitly for this project
+group = "com.github.saizad"
+version = "1.0.0"
+
+// For JitPack compatibility
+val gitVersionTag: String? = System.getenv("VERSION")
+if (gitVersionTag != null) {
+    version = gitVersionTag
+}
+
+// Configure publishing for JitPack
+publishing {
+    publications {
+        create<MavenPublication>("jitpack") {
+            groupId = "com.github.saizad.android-native-auto-instance"
+            artifactId = "auto-instance-processor"
+            version = project.version.toString()
+            
+            from(components["java"])
+            
+            // Add pom information required by JitPack
+            pom {
+                name.set("Auto Instance Processor")
+                description.set("Processor for auto instance generation")
+                url.set("https://github.com/saizad/android-native-auto-instance")
+                
+                licenses {
+                    license {
+                        name.set("The Apache License, Version 2.0")
+                        url.set("http://www.apache.org/licenses/LICENSE-2.0.txt")
+                    }
+                }
+                
+                developers {
+                    developer {
+                        id.set("saizad")
+                        name.set("Sa Zad")
+                    }
+                }
+                
+                // Define dependencies in the POM
+                withXml {
+                    val root = asNode()
+                    val dependenciesNode = root.appendNode("dependencies")
+                    
+                    // Add auto-instance-annotations dependency
+                    val annotationsDep = dependenciesNode.appendNode("dependency")
+                    annotationsDep.appendNode("groupId", "com.github.saizad.android-native-auto-instance")
+                    annotationsDep.appendNode("artifactId", "auto-instance-annotations")
+                    annotationsDep.appendNode("version", project.version)
+                    annotationsDep.appendNode("scope", "compile")
+                    
+                    // Add reflect-instance dependency
+                    val reflectDep = dependenciesNode.appendNode("dependency")
+                    reflectDep.appendNode("groupId", "com.github.saizad.android-native-auto-instance")
+                    reflectDep.appendNode("artifactId", "reflect-instance")
+                    reflectDep.appendNode("version", project.version)
+                    reflectDep.appendNode("scope", "compile")
+                }
+            }
+        }
+    }
+    
+    repositories {
+        mavenLocal()
+    }
 }
