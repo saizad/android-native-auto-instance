@@ -37,7 +37,7 @@ gradlePlugin {
 
         create("modelInstanceGeneratorPlugin") {
             id = "com.reflect.instance.model.plugin"
-            implementationClass = "com.reflect.instance.plugin.ModelInstanceGeneratorExtension"
+            implementationClass = "com.reflect.instance.plugin.ModelInstanceGeneratorPlugin"
         }
     }
     // Use the plugin maven publication

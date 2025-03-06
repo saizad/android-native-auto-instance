@@ -4,6 +4,7 @@ plugins {
     id("kotlin-parcelize")
     id("org.jetbrains.kotlin.plugin.serialization") version "2.0.21"
     id("com.reflect.instance.plugin")
+    id("com.reflect.instance.model.plugin")
     alias(libs.plugins.kotlin.compose)
 }
 
