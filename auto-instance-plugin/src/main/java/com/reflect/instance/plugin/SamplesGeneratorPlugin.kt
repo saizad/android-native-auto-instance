@@ -228,11 +228,10 @@ private fun Project.generateSampleInstancesForClass(
                 val listMatches = listTypeRegex.findAll(originalContent)
 
                 listMatches.forEachIndexed { index, match ->
-                    val valName = match.groupValues[1]  // Variable name (e.g., "tkn")
-                    val typeName = match.groupValues[2] // Type name (e.g., "Token")
-                    val listSize = match.groupValues[3].toInt() // Extracts the size (e.g., 2)
+                    val valName = match.groupValues[1]
+                    val typeName = match.groupValues[2]
+                    val listSize = match.groupValues[3].toInt()
 
-                    // Generate a list of instances dynamically
                     val replacement = "val $valName: List<$typeName> = ${objectToString(fakeFunction.call(fakeHelper, clazz, listSize) as List<Any>)}"
 
                     modifiedContent = modifiedContent.replace(match.value, replacement)
@@ -279,7 +278,6 @@ private fun Project.generateSampleInstancesForClass(
         }.trim()
 
         generatedFile.writeText(newContent)
-//        println("Updated imports: ${generatedFile.absolutePath}")
     }
 }
 
