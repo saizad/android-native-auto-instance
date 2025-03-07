@@ -23,5 +23,8 @@ class ProfilePreview {
     @AutoInject(count = 2)
     lateinit var tkn2: List<Token>
 
+    @AutoInject
+    var refreshToken: Token? = null
+
 
 } 

@@ -45,7 +45,7 @@ abstract class GenerateModelSamplesTask : DefaultTask() {
 
         if (classDirectories.isEmpty()) {
             logger.error("No class directories found. Make sure the app module is compiled.")
-            logger.error("Try running './gradlew :app:compileDebugSources' first.")
+            logger.error("Try running './gradlew :app:compile{variant}Sources' first.")
             return
         }
 
@@ -95,7 +95,7 @@ abstract class GenerateModelSamplesTask : DefaultTask() {
             modelClassesByPackage.forEach { (modelPackage, classNames) ->
                 appProject.generateSampleInstancesForClass(
                     modelPackage,
-                    classNames.distinct(),
+                    classNames.distinct().filter { "$" !in it }, // Exclude nested/companion/serializer classes
                     instance,
                     classLoader,
                 )
@@ -117,7 +117,7 @@ abstract class GenerateModelSamplesTask : DefaultTask() {
     @Throws(GradleException::class)
     private fun findReflectInstanceJarFromAAR(): File {
         val aarFile = findLatestAAR("reflect-instance/build/outputs/aar")
-        val tempDir = project.rootProject.buildDir.resolve("extracted-aar")
+        val tempDir = project.layout.buildDirectory.get().asFile.resolve("extracted-aar")
 
         if (aarFile == null || !aarFile.exists()) {
             throw GradleException("AAR file not found. Run ':reflect-instance:assembleDebug' first.")
@@ -150,11 +150,11 @@ abstract class GenerateModelSamplesTask : DefaultTask() {
 
 private fun Project.getGeneratedKspDir(): File {
     val variant = getBuildVariant()
-    val kspDir = project.buildDir.resolve("generated/ksp")
+    val kspDir = project.layout.buildDirectory.get().asFile.resolve("generated/ksp")
 
     // Find a directory that matches the variant dynamically
     val matchedVariantDir =
-        kspDir.listFiles()?.firstOrNull { it.name.contains(variant, ignoreCase = true) }
+        kspDir.listFiles()?.firstOrNull { it.name.lowercase() == variant.lowercase() }
 
     return matchedVariantDir?.resolve("kotlin/com/reflect/instance/sample")
         ?: throw GradleException("Could not determine the correct KSP directory for variant: $variant")
@@ -163,11 +163,14 @@ private fun Project.getGeneratedKspDir(): File {
 private fun Project.getBuildVariant(): String {
     val defaultVariant = "debug" // Fallback option
     return project.gradle.startParameter.taskNames
-        .onEach { println("Build Variant $it") }
+        .onEach { println("Task name $it") }
         .map { it.substringAfterLast(":") }
+        .onEach { println("Cleaned task name $it") }
         .firstOrNull { it.startsWith("compile") && it.endsWith("Sources") }
         ?.removePrefix("compile")
-        ?.removeSuffix("Sources")
+        ?.removeSuffix("Sources").also {
+            println("Trimmed task name to variant $it")
+        }
         ?: defaultVariant
 }
 
@@ -195,7 +198,7 @@ private fun Project.generateSampleInstancesForClass(
                 val clazz = Class.forName(fullClassName, true, classLoader).kotlin
                 val fakeFunction = fakeHelper::class.memberFunctions.find { it.name == "fake" }
                 fakeFunction?.isAccessible = true
-                var instance = (fakeFunction!!.call(fakeHelper, clazz, 1) as List<Any>).first()
+                var instance = (fakeFunction!!.call(fakeHelper, clazz, 1) as List<*>).first()!!
 
 
                 val originalContent = generatedFile.readText()
@@ -211,11 +214,11 @@ private fun Project.generateSampleInstancesForClass(
                 matches.forEachIndexed { index, match ->
                     val valName = match.groupValues[1]
                     val typeName = match.groupValues[2]
-                    instance = if(index > 0) {
-                        (fakeFunction.call(fakeHelper, clazz, 1) as List<Any>).first()
+                    instance = (if(index > 0) {
+                        (fakeFunction.call(fakeHelper, clazz, 1) as List<*>).first()
                     } else {
                         instance
-                    }
+                    })!!
                     val replacement =
                         "val $valName: $typeName = ${objectToString(instance)}"
                     modifiedContent = modifiedContent.replace(match.value, replacement)
@@ -227,12 +230,12 @@ private fun Project.generateSampleInstancesForClass(
                 )
                 val listMatches = listTypeRegex.findAll(originalContent)
 
-                listMatches.forEachIndexed { index, match ->
+                listMatches.forEachIndexed { _, match ->
                     val valName = match.groupValues[1]
                     val typeName = match.groupValues[2]
                     val listSize = match.groupValues[3].toInt()
 
-                    val replacement = "val $valName: List<$typeName> = ${objectToString(fakeFunction.call(fakeHelper, clazz, listSize) as List<Any>)}"
+                    val replacement = "val $valName: List<$typeName> = ${objectToString(fakeFunction.call(fakeHelper, clazz, listSize) as List<*>)}"
 
                     modifiedContent = modifiedContent.replace(match.value, replacement)
                 }
@@ -266,7 +269,6 @@ private fun Project.generateSampleInstancesForClass(
         val contentWithoutPackage = originalContent.replace(packageRegex, "").trim()
 
         val newImports = classNames
-            .filter { "$" !in it }  // Exclude nested/companion/serializer classes
             .joinToString("\n") { "import $modelPackage.$it" }
 
         val newContent = buildString {
