@@ -24,8 +24,13 @@ fun <T : Any> KClass<T>.fake(count: Int, generator: DataGenerator? = null): List
     }
     try {
         return (0 until count).map {
-            createRandomObject(this)
-                ?: throw IllegalArgumentException("Failed to create an instance of $this")
+            try {
+                createRandomObject(this)
+                    ?: throw IllegalArgumentException("Failed to create an instance of $this")
+            } catch (e: IllegalArgumentException) {
+                // Rethrow the exception for classes without primary constructors
+                throw e
+            }
         }
     } finally {
         if (generator != null) {

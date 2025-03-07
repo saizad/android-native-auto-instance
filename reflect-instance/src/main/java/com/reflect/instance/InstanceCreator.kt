@@ -34,7 +34,8 @@ class InstanceCreator {
                     generateRandomEnum(kClass) as T
                 }
                 else -> {
-                    val constructor = kClass.primaryConstructor ?: return null
+                    val constructor = kClass.primaryConstructor 
+                        ?: throw IllegalArgumentException("Class ${kClass.simpleName} has no primary constructor")
 
                     val paramValues = constructor.parameters.associate {
                         it.name!! to generateRandomValue(it, null, 0, kClass, kClass)

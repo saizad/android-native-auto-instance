@@ -86,22 +86,58 @@ class RandomValueGenerator {
             val type = kType ?: param.type
             val kClass = type.classifier as? KClass<*> ?: return null
 
+            // Check if we've already created too many instances of this class (to prevent infinite recursion)
             val currentCount = recursionCounters.getOrDefault(kClass, 0)
             if (currentCount >= 2) {
-                recursionCounters[kClass] = 0
+                // For circular references, return null for nullable types or a default value
+                if (type.isMarkedNullable) {
+                    return null
+                }
                 return generateDefaultValue(type)
             }
+            
+            // Increment the counter for this class
             recursionCounters[kClass] = currentCount + 1
 
-            if (isPrimitiveOrWrapper(kClass)) return generatePrimitiveValue(kClass).also { recursionCounters[kClass] = currentCount }
+            if (isPrimitiveOrWrapper(kClass)) {
+                // Reset counter before returning for primitive types
+                recursionCounters[kClass] = currentCount
+                return generatePrimitiveValue(kClass)
+            }
 
             return try {
-                val constructor = kClass.primaryConstructor ?: return null
-                val paramValues = constructor.parameters.associate { it.name!! to generateRandomValue(it, null, depth + 1, kClass, targetClass) }
-                createInstance(kClass, paramValues).also { recursionCounters[kClass] = currentCount }
-            } catch (e: Exception) {
+                val constructor = kClass.primaryConstructor
+                if (constructor == null) {
+                    // Reset counter and throw an exception for classes without a primary constructor
+                    recursionCounters[kClass] = currentCount
+                    throw IllegalArgumentException("Class ${kClass.simpleName} has no primary constructor")
+                }
+                
+                // Create parameter values map
+                val paramValues = constructor.parameters.associate { parameter ->
+                    // For self-referential parameters that would cause circular references,
+                    // use null if the parameter is nullable
+                    val value = if (parameter.type.classifier == kClass && parameter.type.isMarkedNullable && currentCount > 0) {
+                        null
+                    } else {
+                        generateRandomValue(parameter, null, depth + 1, kClass, targetClass)
+                    }
+                    parameter.name!! to value
+                }
+                
+                // Create the instance and reset the counter
+                val result = createInstance(kClass, paramValues)
+                // Reset counter after successful creation
                 recursionCounters[kClass] = currentCount
-                generateDefaultValue(type)
+                result
+            } catch (e: Exception) {
+                // Reset counter if there was an exception
+                recursionCounters[kClass] = currentCount
+                if (type.isMarkedNullable) {
+                    null
+                } else {
+                    generateDefaultValue(type)
+                }
             }
         }
 

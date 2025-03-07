@@ -418,14 +418,18 @@ class MissingConstructorTests {
     @Test
     fun `should handle class without primary constructor`() {
         class NoConstructorClass {
-            val value: String = "default"
+            val value: String
+
+            constructor() {
+                value = "default"
+            }
         }
 
-        NoConstructorClass()
-        // This should not throw an exception, just return null
+        // This should throw an IllegalArgumentException about missing primary constructor
         val result = runCatching { NoConstructorClass::class.fake() }
         assertTrue(result.isFailure)
         assertTrue(result.exceptionOrNull() is IllegalArgumentException)
+        assertTrue((result.exceptionOrNull() as IllegalArgumentException).message?.contains("no primary constructor") == true)
     }
 }
 
