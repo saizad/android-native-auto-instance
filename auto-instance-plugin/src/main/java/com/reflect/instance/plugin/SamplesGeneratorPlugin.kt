@@ -148,17 +148,23 @@ abstract class GenerateModelSamplesTask : DefaultTask() {
 
 }
 
-private fun Project.getGeneratedKspDir(): File {
+private fun Project.getKspGeneratedInjectorFiles(): List<File> {
     val variant = getBuildVariant()
     val kspDir = project.layout.buildDirectory.get().asFile.resolve("generated/ksp")
 
-    // Find a directory that matches the variant dynamically
+    // Find the matching variant directory
     val matchedVariantDir =
-        kspDir.listFiles()?.firstOrNull { it.name.lowercase() == variant.lowercase() }
+        kspDir.listFiles()?.firstOrNull { it.name.equals(variant, ignoreCase = true) }
+            ?: throw GradleException("Could not determine the correct KSP directory for variant: $variant")
 
-    return matchedVariantDir?.resolve("kotlin/com/reflect/instance/sample")
-        ?: throw GradleException("Could not determine the correct KSP directory for variant: $variant")
+    val kotlinDir = matchedVariantDir.resolve("kotlin")
+
+    // Find all .kt files that end with "Injector"
+    return kotlinDir.walkTopDown()
+        .filter { it.isFile && it.extension == "kt" && it.name.endsWith("Injector.kt") }
+        .toList()
 }
+
 
 private fun Project.getBuildVariant(): String {
     val defaultVariant = "debug" // Fallback option
@@ -181,11 +187,7 @@ private fun Project.generateSampleInstancesForClass(
     fakeHelper: Any,
     classLoader: URLClassLoader,
 ) {
-    val generatedDir = getGeneratedKspDir()
-
-    println("generatedDir -> $generatedDir")
-    val generatedFiles =
-        generatedDir.listFiles()?.filter { it.isFile && it.extension == "kt" } ?: emptyList()
+    val generatedFiles = getKspGeneratedInjectorFiles()
 
     // Step 1: Modify instances in the files
     generatedFiles.forEach { generatedFile ->
