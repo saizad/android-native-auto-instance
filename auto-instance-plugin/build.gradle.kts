@@ -1,10 +1,9 @@
 plugins {
     `kotlin-dsl`
     `java-gradle-plugin`
-    id("maven-publish")  // ✅ Correct way to apply the plugin in Gradle Kotlin DSL
+    id("maven-publish")
 }
 
-// Set group and version explicitly for this project
 group = "com.github.saizad"
 version = "1.0.0"
 

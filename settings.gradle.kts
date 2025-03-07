@@ -23,9 +23,6 @@ dependencyResolutionManagement {
 
 rootProject.name = "AutoInstancePlugin"
 include(":app")
-//include(":auto-instance-plugin")
-//include(":autoinstance")
-//project(":autoinstance").projectDir = file("../AutoInstance/autoinstance")
 include(":reflect-instance")
 include(":auto-instance-annotations")
 include(":auto-instance-processor")

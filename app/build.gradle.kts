@@ -8,9 +8,6 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-// Apply the plugin manually
-// apply(plugin = "com.reflect.instance.plugin")
-
 // Comment out the modelGenerator block for now
 modelGenerator {
     modelPackages = listOf(
