@@ -1,5 +1,6 @@
 package com.reflect.instance
 
+import com.reflect.instance.RandomValueGenerator.Companion.generateRandomString
 import kotlin.random.Random
 
 /**

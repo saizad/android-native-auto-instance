@@ -13,11 +13,11 @@ annotation class InjectInstance
  * The property must be in a class marked with @InjectInstance.
  * 
  * @param count Number of instances to inject (default is 1)
- * @param source Optional source object to use for injection
+ * @param dataGenerator Optional source object to use for injection
  */
 @Target(AnnotationTarget.PROPERTY)
 @Retention(AnnotationRetention.SOURCE)
 annotation class AutoInject(
     val count: Int = 1,
-    val source: String = ""
+    val dataGenerator: String = ""
 ) 

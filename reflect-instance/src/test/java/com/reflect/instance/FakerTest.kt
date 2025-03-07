@@ -1,5 +1,8 @@
 package com.reflect.instance
 
+import com.reflect.instance.RandomValueGenerator.Companion.MAX_RECURSION_DEPTH
+import com.reflect.instance.RandomValueGenerator.Companion.generateRandomString
+import com.reflect.instance.RandomValueGenerator.Companion.generateRandomValue
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
