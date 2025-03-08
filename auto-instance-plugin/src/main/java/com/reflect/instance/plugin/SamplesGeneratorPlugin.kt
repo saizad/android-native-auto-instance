@@ -11,6 +11,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
 import java.io.File
 import java.net.URLClassLoader
 import kotlin.reflect.KProperty1
+import kotlin.reflect.full.createInstance
 import kotlin.reflect.full.memberFunctions
 import kotlin.reflect.full.memberProperties
 import kotlin.reflect.jvm.isAccessible
@@ -216,7 +217,16 @@ private fun Project.generateInstancesInKspInjectorFiles(
                 val clazz = Class.forName(typeName, true, classLoader).kotlin
                 val fakeFunction = fakeHelper::class.memberFunctions.find { it.name == "fake" }
                 fakeFunction?.isAccessible = true
-                val instance = (fakeFunction!!.call(fakeHelper, clazz, 1, null) as List<*>).first()!!
+                val generator = if (pkg != null) {
+                    println("Generating generator for pkg: $pkg")
+                    Class.forName(pkg, true, classLoader).kotlin.createInstance()
+                        .also {
+                            println("Generator for $field $it")
+                        }
+                } else {
+                    null
+                }
+                val instance = (fakeFunction!!.call(fakeHelper, clazz, 1, generator) as List<*>).first()!!
                 val replacement = "$field = ${objectToString(instance)}"
                 modifiedContent = modifiedContent.replace(match.value, replacement)
 
