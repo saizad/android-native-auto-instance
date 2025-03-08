@@ -91,9 +91,15 @@ class AutoInstanceProcessor(
                                         .find { it.name?.asString() == "count" }
                                         ?.value as? Int ?: 1
 
-                                    val source = annotation.arguments
-                                        .find { it.name?.asString() == "source" }
+                                    val dataGenerator = annotation.arguments
+                                        .find { it.name?.asString() == "dataGenerator" }
                                         ?.value as? String ?: ""
+
+                                    val generator = if (dataGenerator.isNullOrEmpty()) {
+                                        ""
+                                    } else {
+                                        "/** $dataGenerator **/"
+                                    }
 
                                     // Check if the property type is a List
                                     val isList = propertyType.declaration.qualifiedName?.asString() == "kotlin.collections.List"
@@ -102,41 +108,31 @@ class AutoInstanceProcessor(
                                         // Handle List type
                                         val typeArg = propertyType.arguments.firstOrNull()?.type?.resolve()
                                         if (typeArg != null) {
-                                            val argType = typeArg.declaration.qualifiedName?.asString() ?: ""
                                             val argShortName = typeArg.declaration.simpleName.asString()
 
                                             addStatement(
-                                                "val %L: List<%T> = List(%L) { Any() as %T }",
+                                                "target.%L = %L List(%L) { Any() as %L }",
                                                 propertyName,
-                                                ClassName(
-                                                    argType.substringBeforeLast(".$argShortName"),
-                                                    argShortName
-                                                ),
+                                                generator,
                                                 count,
-                                                ClassName(
-                                                    argType.substringBeforeLast(".$argShortName"),
-                                                    argShortName
-                                                )
-                                            )
-
-                                            addStatement(
-                                                "target.%L = %L",
-                                                propertyName,
-                                                propertyName,
+                                                ClassName(typeArg.declaration.qualifiedName?.getQualifier().toString(), argShortName)
                                             )
                                         }
                                     } else {
                                         val type = propertyType.declaration.simpleName.getShortName()
+
+//                                        addStatement(
+//                                            "val %L: %T = Any() as %L",
+//                                            propertyName,
+//                                            ClassName(propertyType.declaration.qualifiedName?.getQualifier().toString(), type),
+//                                            type
+//                                        )
+
                                         addStatement(
-                                            "val %L: %T = Any() as %L",
+                                            "target.%L = %L Any() as %L",
                                             propertyName,
-                                            ClassName(propertyType.declaration.qualifiedName?.getQualifier().toString(), type),
-                                            type
-                                        )
-                                        addStatement(
-                                            "target.%L = %L",
-                                            propertyName,
-                                            propertyName,
+                                            generator,
+                                            ClassName(propertyType.declaration.qualifiedName?.getQualifier().toString(), type)
                                         )
                                     }
                                 }

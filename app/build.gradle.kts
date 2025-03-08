@@ -12,6 +12,7 @@ plugins {
 modelGenerator {
     modelPackages = listOf(
         "com.auto.instance.plugin.models",
+        "com.auto.instance.plugin.models.school",
     )
 }
 

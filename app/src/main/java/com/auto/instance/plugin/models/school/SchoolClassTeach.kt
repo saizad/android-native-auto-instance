@@ -1,4 +1,4 @@
-package com.auto.instance.plugin.models
+package com.auto.instance.plugin.models.school
 
 
 data class SchoolClassTeach(

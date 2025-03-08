@@ -1,7 +1,8 @@
 package com.reflect.instance.sample
 
-import com.auto.instance.plugin.models.SchoolClassSection
-import com.auto.instance.plugin.models.SchoolClassTeach
+import com.auto.instance.plugin.models.Token
+import com.auto.instance.plugin.models.school.SchoolClassSection
+import com.auto.instance.plugin.models.school.SchoolClassTeach
 import com.reflect.instance.annotations.AutoInject
 import com.reflect.instance.annotations.InjectInstance
 
@@ -13,4 +14,7 @@ class TeacherPreview {
 
     @AutoInject
     lateinit var section: SchoolClassSection
+
+    @AutoInject(dataGenerator = "com.auto.instance.plugin.generator.TokenDataGenerator")
+    lateinit var tok: Token
 } 

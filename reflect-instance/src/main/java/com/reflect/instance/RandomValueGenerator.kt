@@ -10,7 +10,7 @@ import kotlin.reflect.full.primaryConstructor
 class RandomValueGenerator {
 
     companion object {
-        private const val MAX_RECURSION_DEPTH = 5
+        internal const val MAX_RECURSION_DEPTH = 5
         private const val NULL_PROBABILITY = 0.2
         private const val DEFAULT_STRING_LENGTH = 8
         private const val DEFAULT_COLLECTION_SIZE = 2
