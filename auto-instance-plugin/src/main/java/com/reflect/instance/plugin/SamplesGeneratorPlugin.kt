@@ -218,11 +218,7 @@ private fun Project.generateInstancesInKspInjectorFiles(
                 val fakeFunction = fakeHelper::class.memberFunctions.find { it.name == "fake" }
                 fakeFunction?.isAccessible = true
                 val generator = if (pkg != null) {
-                    println("Generating generator for pkg: $pkg")
                     Class.forName(pkg, true, classLoader).kotlin.createInstance()
-                        .also {
-                            println("Generator for $field $it")
-                        }
                 } else {
                     null
                 }
@@ -240,7 +236,7 @@ private fun Project.generateInstancesInKspInjectorFiles(
         // Process list type replacements
         listTypeRegex.findAll(modifiedContent).forEachIndexed { index, match ->
             val field = match.groups["field"]?.value ?: ""
-            val pkg = match.groups["package"]?.value ?: "No package"
+            val pkg = match.groups["package"]?.value
             val size = match.groups["size"]?.value?.toInt() ?: 1
             val typeName = match.groups["type"]?.value ?: ""
 
@@ -251,7 +247,12 @@ private fun Project.generateInstancesInKspInjectorFiles(
                 val fakeFunction = fakeHelper::class.memberFunctions.find { it.name == "fake" }
                 fakeFunction?.isAccessible = true
 
-                val instances = (fakeFunction!!.call(fakeHelper, clazz, size, null) as List<*>)
+                val generator = if (pkg != null) {
+                    Class.forName(pkg, true, classLoader).kotlin.createInstance()
+                } else {
+                    null
+                }
+                val instances = (fakeFunction!!.call(fakeHelper, clazz, size, generator) as List<*>)
 
                 val replacement = "$field = ${objectToString(instances)}"
                 modifiedContent = modifiedContent.replace(match.value, replacement)
