@@ -18,7 +18,6 @@ fun <T : Any> KClass<T>.fake(generator: DataGenerator? = null): T {
 }
 
 fun <T : Any> KClass<T>.fake(count: Int, generator: DataGenerator? = null): List<T> {
-    println("^^^ $generator")
     if (generator != null) {
         DataGeneratorRegistry.registerGenerator(generator, true)
     }
