@@ -25,6 +25,9 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.21")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
     testImplementation("junit:junit:4.13.2")
+    testImplementation(gradleTestKit()) // Enables Gradle functional testing
+    testImplementation(kotlin("test")) // Standard Kotlin test lib
+
 }
 
 gradlePlugin {
@@ -89,3 +92,10 @@ tasks.register("publishPluginToJitPack") {
         println("Published auto-instance-plugin to JitPack")
     }
 }
+
+tasks.withType<Test> {
+    testLogging {
+        events("passed", "skipped", "failed")
+    }
+}
+

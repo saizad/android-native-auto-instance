@@ -201,7 +201,7 @@ private fun Project.generateInstancesInKspInjectorFiles(
                 modifiedContent = modifiedContent.replace(match.value, replacement)
 
             } catch (e: Exception) {
-                logger.error("Error generating instance for type: $typeName -> ${e.message}")
+                logger.error("Error($e) generating instance for type: $typeName -> ${e.message}")
             }
         }
 

@@ -48,28 +48,24 @@ class ModelInstanceGeneratorPlugin : Plugin<Project> {
         logger.info("Task generateModelSamples registered")
 
         project.afterEvaluate {
-            logger.info("After evaluate: configuring tasks")
-
             val compileTasks = project.tasks.matching { it.name.contains("compile") && it.name.contains("Sources") }
             val kspTasks = project.tasks.matching { it.name.startsWith("ksp") && it.name.endsWith("Kotlin") }
+            val generateTaskInstance = generateTask.get()
 
-            if (compileTasks.isEmpty()) {
-                logger.warn("No compile tasks found. Ensure the project is correctly set up.")
+            compileTasks.filterNotNull().forEach { compileTask ->
+                // Ensure all KSP tasks run before compiling sources
+                kspTasks.forEach { kspTask ->
+                    compileTask.dependsOn(kspTask)
+                    compileTask.mustRunAfter(kspTask)
+                }
+
+                // Ensure generateTask runs after compilation
+                generateTaskInstance.mustRunAfter(compileTask)
+                compileTask.finalizedBy(generateTaskInstance)
             }
 
-            if (kspTasks.isEmpty()) {
-                logger.warn("No KSP tasks found. Ensure KSP is correctly configured.")
-            }
-
-            generateTask.configure {
-                mustRunAfter(kspTasks)
-            }
-
-            compileTasks.configureEach {
-                dependsOn(generateTask)
-            }
-
-            logger.info("Model packages configured: ${extension.modelPackages}")
+            println("Model packages configured: ${extension.modelPackages}")
         }
+
     }
 }
