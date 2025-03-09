@@ -22,6 +22,13 @@ class AutoInstanceProcessor(
     private val autoInjectQualifiedName = AutoInject::class.qualifiedName!!
     private val injectInstanceQualifiedName = InjectInstance::class.qualifiedName!!
 
+    // List of primitive type qualified names
+    private val primitiveTypes = setOf(
+        "kotlin.Int", "kotlin.Long", "kotlin.Short", "kotlin.Byte",
+        "kotlin.Float", "kotlin.Double", "kotlin.Boolean", "kotlin.Char",
+        "kotlin.String", "kotlin.Any"
+    )
+
     override fun process(resolver: Resolver): List<KSAnnotated> {
         val injectInstanceClasses = findAnnotatedClasses(resolver)
 
@@ -70,13 +77,16 @@ class AutoInstanceProcessor(
 
         // Validate properties and only proceed with valid ones
         val validProperties = validateProperties(autoInjectProperties, className)
-        
-        logger.info("After validation, ${validProperties.size} valid properties remain in class ${classDeclaration.qualifiedName?.asString()}")
+
+        // Validate property types
+        val validTypeProperties = validatePropertyTypes(validProperties, className)
+
+        logger.info("After validation, ${validTypeProperties.size} valid properties remain in class ${classDeclaration.qualifiedName?.asString()}")
 
         // Generate the injector class file even if there are no valid properties
         // This ensures the test assertions pass
         try {
-            val fileSpec = generateInjectorFile(packageName, generatedClassName, classDeclaration, validProperties)
+            val fileSpec = generateInjectorFile(packageName, generatedClassName, classDeclaration, validTypeProperties)
             fileSpec.writeTo(codeGenerator, Dependencies(true, classDeclaration.containingFile!!))
             logger.info("Successfully generated injector file for ${classDeclaration.qualifiedName?.asString()}")
         } catch (e: Exception) {
@@ -118,6 +128,90 @@ class AutoInstanceProcessor(
         }
 
         return properties.filter { it.isMutable }
+    }
+
+    /**
+     * Validate property types, ensuring they are not primitives, nested lists, or lists of primitives
+     * Throws compilation errors for invalid types
+     */
+    private fun validatePropertyTypes(
+        properties: List<KSPropertyDeclaration>,
+        className: String
+    ): List<KSPropertyDeclaration> {
+        val invalidProperties = mutableListOf<KSPropertyDeclaration>()
+
+        for (property in properties) {
+            val propertyName = property.simpleName.asString()
+            val propertyType = property.type.resolve()
+            val qualifiedName = propertyType.declaration.qualifiedName?.asString()
+
+            // Check if the property is a primitive type
+            if (qualifiedName in primitiveTypes) {
+                invalidProperties.add(property)
+                logger.error(
+                    "❌ @AutoInject cannot be applied to primitive types! " +
+                            "Found on: $propertyName of type $qualifiedName in class $className"
+                )
+                throw IllegalArgumentException("@AutoInject cannot be applied to primitive type $qualifiedName for property $propertyName in class $className")
+            }
+
+            // Check if the property is a nested list
+            if (isNestedList(propertyType)) {
+                invalidProperties.add(property)
+                logger.error(
+                    "❌ @AutoInject cannot be applied to nested lists! " +
+                            "Found on: $propertyName in class $className"
+                )
+                throw IllegalArgumentException("@AutoInject cannot be applied to nested list for property $propertyName in class $className")
+            }
+
+            // Check if the property is a list of primitives
+            if (isListOfPrimitives(propertyType)) {
+                invalidProperties.add(property)
+                val typeArg = propertyType.arguments.firstOrNull()?.type?.resolve()
+                val typeArgName = typeArg?.declaration?.qualifiedName?.asString()
+                logger.error(
+                    "❌ @AutoInject cannot be applied to lists of primitive types! " +
+                            "Found on: $propertyName with List<$typeArgName> in class $className"
+                )
+                throw IllegalArgumentException("@AutoInject cannot be applied to List<$typeArgName> for property $propertyName in class $className")
+            }
+        }
+
+        return properties.filter { it !in invalidProperties }
+    }
+
+    /**
+     * Check if a type is a nested list (List<List<*>>)
+     */
+    private fun isNestedList(type: KSType): Boolean {
+        // Check if it's a List
+        if (isList(type)) {
+            // Get the type argument of the list
+            val typeArg = type.arguments.firstOrNull()?.type?.resolve()
+            if (typeArg != null) {
+                // Check if the type argument is also a List
+                return isList(typeArg)
+            }
+        }
+        return false
+    }
+
+    /**
+     * Check if a type is a list of primitive types (List<PrimitiveType>)
+     */
+    private fun isListOfPrimitives(type: KSType): Boolean {
+        // Check if it's a List
+        if (isList(type)) {
+            // Get the type argument of the list
+            val typeArg = type.arguments.firstOrNull()?.type?.resolve()
+            if (typeArg != null) {
+                // Check if the type argument is a primitive type
+                val typeArgName = typeArg.declaration.qualifiedName?.asString()
+                return typeArgName in primitiveTypes
+            }
+        }
+        return false
     }
 
     /**
