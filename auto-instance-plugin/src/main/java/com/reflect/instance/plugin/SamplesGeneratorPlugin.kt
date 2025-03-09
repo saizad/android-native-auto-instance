@@ -35,6 +35,7 @@ abstract class GenerateModelSamplesTask : DefaultTask() {
 
     @TaskAction
     fun generate() {
+        logger.lifecycle("Starting GenerateModelSamplesTask...")
 
         val appProject = project.rootProject.findProject(":app")
         if (appProject == null) {
@@ -43,14 +44,13 @@ abstract class GenerateModelSamplesTask : DefaultTask() {
         }
 
         val classDirectories = findCompiledClassDirectories(appProject)
-
         if (classDirectories.isEmpty()) {
-            logger.error("No class directories found. Make sure the app module is compiled.")
+            logger.error("No class directories found. Ensure the app module is compiled.")
             logger.error("Try running './gradlew :app:compile{variant}Sources' first.")
             return
         }
 
-        logger.lifecycle("Searching for classes in:")
+        logger.lifecycle("Class directories found:")
         classDirectories.forEach { logger.lifecycle(" - ${it.absolutePath}") }
 
         val urls = classDirectories.map { it.toURI().toURL() }.toTypedArray()
@@ -67,8 +67,7 @@ abstract class GenerateModelSamplesTask : DefaultTask() {
                         if (file.isFile && file.extension == "class") {
                             val fullClassName = "$modelPackage.${file.nameWithoutExtension}"
                             try {
-                                val clazz =
-                                    Class.forName(fullClassName, true, classLoader).kotlin
+                                val clazz = Class.forName(fullClassName, true, classLoader).kotlin
                                 if (!clazz.isAbstract && !clazz.java.isInterface && !clazz.java.isAnonymousClass) {
                                     modelClassesByPackage.getOrPut(modelPackage) { mutableListOf() }
                                         .add(file.nameWithoutExtension)
@@ -76,7 +75,7 @@ abstract class GenerateModelSamplesTask : DefaultTask() {
                             } catch (e: NoClassDefFoundError) {
                                 logger.warn("Skipping $fullClassName due to missing dependency: ${e.message}")
                             } catch (e: Exception) {
-                                logger.error("Skipping $fullClassName due to error: ${e.message}")
+                                logger.error("Skipping $fullClassName due to error: ${e.message}", e)
                             }
                         }
                     }
@@ -85,41 +84,31 @@ abstract class GenerateModelSamplesTask : DefaultTask() {
         }
 
         val classesJar = findReflectInstanceJar()
-
-        if (classesJar.exists()) {
-            val fakeHelperClassLoader =
-                URLClassLoader(arrayOf(classesJar.toURI().toURL()), javaClass.classLoader)
-            val targetClass = fakeHelperClassLoader.loadClass("com.reflect.instance.FakeHelper")
-            val instance = targetClass.getDeclaredConstructor().newInstance()
-            appProject.generateInstancesInKspInjectorFiles(
-                instance,
-                classLoader,
-            )
-        } else {
+        if (!classesJar.exists()) {
             throw GradleException("classes.jar not found inside extracted AAR!")
         }
 
-        val allClasses = modelClassesByPackage.map { (pkg, classes) ->
-            classes.map { cl -> pkg.plus(".").plus(cl) }
-        }
+        val fakeHelperClassLoader = URLClassLoader(arrayOf(classesJar.toURI().toURL()), javaClass.classLoader)
+        val targetClass = fakeHelperClassLoader.loadClass("com.reflect.instance.FakeHelper")
+        val instance = targetClass.getDeclaredConstructor().newInstance()
 
-        appProject.generateImportsInKspInjectorFiles(
-            allClasses.flatten().distinct().filter { "$" !in it })
+        appProject.generateInstancesInKspInjectorFiles(instance, classLoader)
+        appProject.generateImportsInKspInjectorFiles(modelClassesByPackage.flatMap { (pkg, classes) ->
+            classes.map { "$pkg.$it" }
+        }.distinct().filter { "$" !in it })
 
-
+        logger.lifecycle("Model sample generation completed successfully.")
     }
 
     private fun findReflectInstanceJar(): File {
         return try {
             findReflectInstanceJarFromAAR()
         } catch (e: Exception) {
-            val jarFile =
-                findLatestJar("reflect-instance/build/libs").also { println("%%^ -> ${it?.absolutePath}") }
-            jarFile ?: throw GradleException("Reflect Instance JAR not found!")
+            findLatestJar("reflect-instance/build/libs")
+                ?: throw GradleException("Reflect Instance JAR not found!")
         }
     }
 
-    @Throws(GradleException::class)
     private fun findReflectInstanceJarFromAAR(): File {
         val aarFile = findLatestAAR("reflect-instance/build/outputs/aar")
         val tempDir = project.layout.buildDirectory.get().asFile.resolve("extracted-aar")
@@ -128,29 +117,18 @@ abstract class GenerateModelSamplesTask : DefaultTask() {
             throw GradleException("AAR file not found. Run ':reflect-instance:assembleDebug' first.")
         }
 
-        project.copy {
-            from(project.zipTree(aarFile))
-            into(tempDir)
-        }
-
+        project.copy { from(project.zipTree(aarFile)); into(tempDir) }
         return tempDir.resolve("classes.jar").takeIf { it.exists() }
             ?: throw GradleException("Extracted classes.jar not found in AAR")
     }
 
     private fun findLatestJar(dir: String): File? {
-        return project.rootProject.file(dir)
-            .takeIf { it.exists() }
-            ?.listFiles { file -> file.extension == "jar" }
-            ?.minByOrNull { it.lastModified() }
+        return project.rootProject.file(dir).listFiles { file -> file.extension == "jar" }?.maxByOrNull { it.lastModified() }
     }
 
     private fun findLatestAAR(dir: String): File? {
-        return project.rootProject.file(dir)
-            .takeIf { it.exists() }
-            ?.listFiles { file -> file.extension == "aar" }
-            ?.maxByOrNull { it.lastModified() }
+        return project.rootProject.file(dir).listFiles { file -> file.extension == "aar" }?.maxByOrNull { it.lastModified() }
     }
-
 }
 
 private fun Project.getKspGeneratedInjectorFiles(): List<File> {
@@ -174,14 +152,10 @@ private fun Project.getKspGeneratedInjectorFiles(): List<File> {
 private fun Project.getBuildVariant(): String {
     val defaultVariant = "debug" // Fallback option
     return project.gradle.startParameter.taskNames
-        .onEach { println("Task name $it") }
         .map { it.substringAfterLast(":") }
-        .onEach { println("Cleaned task name $it") }
         .firstOrNull { it.startsWith("compile") && it.endsWith("Sources") }
         ?.removePrefix("compile")
-        ?.removeSuffix("Sources").also {
-            println("Trimmed task name to variant $it")
-        }
+        ?.removeSuffix("Sources")
         ?: defaultVariant
 }
 
@@ -233,14 +207,11 @@ private fun Project.generateInstancesInKspInjectorFiles(
 
 
 
-        // Process list type replacements
         listTypeRegex.findAll(modifiedContent).forEachIndexed { index, match ->
             val field = match.groups["field"]?.value ?: ""
             val pkg = match.groups["package"]?.value
             val size = match.groups["size"]?.value?.toInt() ?: 1
             val typeName = match.groups["type"]?.value ?: ""
-
-            println("field=$field pkg=$pkg size=$size typeName=$typeName")
 
             try {
                 val clazz = Class.forName(typeName, true, classLoader).kotlin
@@ -291,7 +262,6 @@ private fun Project.generateImportsInKspInjectorFiles(
         }.trim()
 
         generatedFile.writeText(newContent)
-        println("Generated File -> ${generatedFile.absolutePath}")
     }
 }
 
