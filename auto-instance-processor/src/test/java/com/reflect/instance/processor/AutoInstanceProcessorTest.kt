@@ -2,239 +2,523 @@ package com.reflect.instance.processor
 
 import com.tschuchort.compiletesting.KotlinCompilation
 import com.tschuchort.compiletesting.SourceFile
+import com.tschuchort.compiletesting.kspSourcesDir
 import com.tschuchort.compiletesting.symbolProcessorProviders
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
-import org.junit.Before
+import org.junit.Assert
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
 
 class AutoInstanceProcessorTest {
-    
     @Rule
     @JvmField
     val temporaryFolder = TemporaryFolder()
-    
-    private lateinit var compilationOutput: KotlinCompilation.Result
-    
-    @Before
-    fun setup() {
-        // Set up will be implemented in specific tests
+
+    private fun findGeneratedFiles(compilation: KotlinCompilation): List<File> {
+        return compilation.kspSourcesDir
+            .walkTopDown()
+            .filter { it.isFile }
+            .toList()
     }
 
-    @Test
-    fun `test processor finds classes with InjectInstance annotation`() {
-        // Create test source file
-        val source = SourceFile.kotlin("TestClass.kt", """
-        package com.reflect.instance.test
-        
-        import com.reflect.instance.annotations.InjectInstance
-        import com.reflect.instance.annotations.AutoInject
-
-        data class Profile(val firstName: String, val lastName: String)
-
-        @InjectInstance
-        class UserModel {
-            @AutoInject
-            lateinit var profile: Profile
-            
-        }
-        
-        
-    """.trimIndent())
-
-        // Compile with our processor
-        compilationOutput = compile(source)
-
-        // Verify compilation succeeded
-        assertEquals(KotlinCompilation.ExitCode.OK, compilationOutput.exitCode)
-
-        // Print compilation messages for debugging
-        println("Compilation messages: ${compilationOutput.messages}")
-        
-        // Verify that the processor processed the class
-        assertTrue("Processor should have processed UserModel", 
-            compilationOutput.messages.contains("Processing class: com.reflect.instance.test.UserModel"))
-        
-        // Verify that the processor found the @AutoInject property
-        assertTrue("Processor should have found @AutoInject property", 
-            compilationOutput.messages.contains("Found 1 @AutoInject properties in class com.reflect.instance.test.UserModel"))
-        
-        // Verify that the processor generated the injector file
-        assertTrue("Processor should have generated injector file", 
-            compilationOutput.messages.contains("Successfully generated injector file for com.reflect.instance.test.UserModel"))
-    }
-
-    @Test
-    fun `test processor skips classes without AutoInject properties`() {
-        val source = SourceFile.kotlin("EmptyTest.kt", """
-            package com.reflect.instance.test
-            
-            import com.reflect.instance.annotations.InjectInstance
-            
-            @InjectInstance
-            class EmptyModel {
-                // No @AutoInject properties
-                var name: String = ""
-            }
-        """.trimIndent())
-        
-        compilationOutput = compile(source)
-        
-        // Verify compilation succeeded
-        assertEquals(KotlinCompilation.ExitCode.OK, compilationOutput.exitCode)
-        
-        // Verify that the processor processed the class
-        assertTrue("Processor should have processed EmptyModel", 
-            compilationOutput.messages.contains("Processing class: com.reflect.instance.test.EmptyModel"))
-        
-        // Verify that the processor found no @AutoInject properties
-        assertTrue("Processor should have found no @AutoInject properties", 
-            compilationOutput.messages.contains("No @AutoInject properties found in class com.reflect.instance.test.EmptyModel"))
-    }
-    
-    @Test
-    fun `test processor handles list properties correctly`() {
-        val source = SourceFile.kotlin("ListTest.kt", """
-            package com.reflect.instance.test
-            
-            import com.reflect.instance.annotations.InjectInstance
-            import com.reflect.instance.annotations.AutoInject
-            
-            @InjectInstance
-            class ListContainer {
-                @AutoInject(count = 5)
-                lateinit var items: List<String>
-                
-                @AutoInject
-                lateinit var singleCountList: List<Int>
-            }
-        """.trimIndent())
-        
-        compilationOutput = compile(source)
-        
-        // Verify compilation succeeded
-        assertEquals(KotlinCompilation.ExitCode.OK, compilationOutput.exitCode)
-
-        // Print compilation messages for debugging
-        println("Compilation messages: ${compilationOutput.messages}")
-        
-        // Verify that the processor processed the class
-        assertTrue("Processor should have processed ListContainer", 
-            compilationOutput.messages.contains("Processing class: com.reflect.instance.test.ListContainer"))
-        
-        // Verify that the processor found the @AutoInject properties
-        assertTrue("Processor should have found @AutoInject properties", 
-            compilationOutput.messages.contains("Found 2 @AutoInject properties in class com.reflect.instance.test.ListContainer"))
-        
-        // Verify that the processor generated the injector file
-        assertTrue("Processor should have generated injector file", 
-            compilationOutput.messages.contains("Successfully generated injector file for com.reflect.instance.test.ListContainer"))
-    }
-
-    @Test
-    fun `test processor reports error for val properties with AutoInject`() {
-        val source = SourceFile.kotlin("InvalidTest.kt", """
-        package com.reflect.instance.test
-        
-        import com.reflect.instance.annotations.InjectInstance
-        import com.reflect.instance.annotations.AutoInject
-        
-        @InjectInstance
-        class InvalidModel {
-            @AutoInject
-            val immutableProperty: String = ""  // This should cause an error
-            
-            @AutoInject
-            var validProperty: Int = 0
-        }
-    """.trimIndent())
-
-        compilationOutput = compile(source)
-
-        // Expect compilation to fail with COMPILATION_ERROR exit code
-        assertEquals(KotlinCompilation.ExitCode.COMPILATION_ERROR, compilationOutput.exitCode)
-
-        // Verify the error message appears in the compilation messages
-        assertTrue("Error message should be in compilation output",
-            compilationOutput.messages.contains("@AutoInject can only be applied to 'var' properties"))
-    }
-    
-    @Test
-    fun `test processor handles custom data generator parameter`() {
-        val source = SourceFile.kotlin("CustomGenTest.kt", """
-            package com.reflect.instance.test
-            
-            import com.reflect.instance.annotations.InjectInstance
-            import com.reflect.instance.annotations.AutoInject
-            
-            @InjectInstance
-            class CustomGenModel {
-                @AutoInject(dataGenerator = "RandomStringGenerator")
-                lateinit var customString: String
-                
-                @AutoInject(dataGenerator = "UserFactory", count = 3)
-                lateinit var users: List<String>
-            }
-        """.trimIndent())
-        
-        compilationOutput = compile(source)
-        
-        // Verify compilation succeeded
-        assertEquals(KotlinCompilation.ExitCode.OK, compilationOutput.exitCode)
-        
-        // Print compilation messages for debugging
-        println("Compilation messages: ${compilationOutput.messages}")
-        
-        // Verify that the processor processed the class
-        assertTrue("Processor should have processed CustomGenModel", 
-            compilationOutput.messages.contains("Processing class: com.reflect.instance.test.CustomGenModel"))
-        
-        // Verify that the processor found the @AutoInject properties
-        assertTrue("Processor should have found @AutoInject properties", 
-            compilationOutput.messages.contains("Found 2 @AutoInject properties in class com.reflect.instance.test.CustomGenModel"))
-        
-        // Verify that the processor generated the injector file
-        assertTrue("Processor should have generated injector file", 
-            compilationOutput.messages.contains("Successfully generated injector file for com.reflect.instance.test.CustomGenModel"))
-    }
-    
-    /**
-     * Helper function to compile test sources with the processor
-     */
-    private fun compile(vararg sourceFiles: SourceFile): KotlinCompilation.Result {
-        return KotlinCompilation().apply {
+    private fun processAndExtractGeneratedFiles(
+        injectorFileNames: List<String> = emptyList(),
+        vararg sourceFiles: SourceFile,
+    ): Pair<KotlinCompilation.Result, List<File>> {
+        val compilation = KotlinCompilation().apply {
             sources = sourceFiles.toList()
             symbolProcessorProviders = listOf(AutoInstanceProcessorProvider())
             inheritClassPath = true
             messageOutputStream = System.out
             workingDir = temporaryFolder.root
-        }.compile()
-    }
-    
-    /**
-     * Helper function to find the generated file in the output directory
-     */
-    private fun findGeneratedFile(result: KotlinCompilation.Result, packagePath: String, fileName: String): File {
-        // First try the expected path
-        var file = File(result.outputDirectory, "ksp/sources/kotlin/$packagePath/$fileName")
-        
-        if (file.exists()) {
-            return file
         }
-        
-        // If not found, search for it in the output directory
-        result.outputDirectory.walkTopDown().forEach {
-            if (it.isFile && it.name == fileName) {
-                return it
+
+
+        val result = compilation.compile()
+        val generatedFiles = findGeneratedFiles(compilation)
+            .filter {
+                injectorFileNames.contains(it.name)
             }
-        }
-        
-        // Return the original path if not found
-        return file
+
+        return result to generatedFiles
     }
 
+    @Test
+    fun testProcessorGeneratesInjectorForClassWithValidProperties() {
+        val injectionInstanceClassName = "TestClass"
+        val injectionInstanceClassNameProcessed = injectionInstanceClassName.plus("Injector")
+        val injectorFileNames = listOf(
+            injectionInstanceClassNameProcessed.plus(".kt")
+        )
+        val pkgName = "com.example.test"
+        val source = SourceFile.kotlin(
+            "TestClass.kt", """
+            package $pkgName
+            
+            import com.reflect.instance.annotations.AutoInject
+            import com.reflect.instance.annotations.InjectInstance
+            
+            @InjectInstance
+            class $injectionInstanceClassName {
+                @AutoInject
+                lateinit var name: String
+                
+                @AutoInject(count = 3)
+                lateinit var tags: List<String>
+            }
+            """
+        )
+
+
+        val (result, generatedFiles) = processAndExtractGeneratedFiles(
+            injectorFileNames = injectorFileNames,
+            source,
+        )
+
+        Assert.assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode)
+
+        val injectionInstanceClassNameProcessedFile =
+            generatedFiles.firstOrNull { it.name == injectionInstanceClassNameProcessed.plus(".kt")}
+
+        Assert.assertNotNull(
+            "Generated file($injectionInstanceClassNameProcessed) should exist",
+            injectionInstanceClassNameProcessedFile
+        )
+
+        val fileContent = injectionInstanceClassNameProcessedFile!!.readText()
+        Assert.assertTrue(fileContent.contains("package $pkgName"))
+        Assert.assertTrue(fileContent.contains("object $injectionInstanceClassName"))
+        Assert.assertTrue(fileContent.contains("fun inject(target: $injectionInstanceClassName)"))
+        Assert.assertTrue(fileContent.contains("target.name = Any() as kotlin.String"))
+        Assert.assertTrue(fileContent.contains("target.tags = List(3) { Any() as kotlin.String }"))
+    }
+
+    @Test
+    fun testProcessorGeneratesInjectorForClassWithValidPropertiesForMultiple() {
+        val injectionInstanceClassName1 = "TestClass1"
+        val injectionInstanceClassName2 = "TestClass2"
+        val injectionInstanceClassName1Processed = injectionInstanceClassName1.plus("Injector")
+        val injectionInstanceClassName2Processed = injectionInstanceClassName2.plus("Injector")
+        val injectorFileNames = listOf(
+            injectionInstanceClassName1Processed.plus(".kt"),
+            injectionInstanceClassName2Processed.plus(".kt")
+        )
+        val pkgName = "com.example.test"
+        val source = SourceFile.kotlin(
+            "TestClass.kt", """
+            package $pkgName
+            
+            import com.reflect.instance.annotations.AutoInject
+            import com.reflect.instance.annotations.InjectInstance
+            
+            @InjectInstance
+            class $injectionInstanceClassName1 {
+                @AutoInject
+                lateinit var name: String
+                
+                @AutoInject(count = 3)
+                lateinit var tags: List<String>
+            }
+
+            @InjectInstance
+            class $injectionInstanceClassName2 {
+                @AutoInject
+                lateinit var name: String
+                
+                @AutoInject(count = 3)
+                lateinit var tags: List<String>
+            }
+            """
+        )
+
+
+        val (result, generatedFiles) = processAndExtractGeneratedFiles(
+            injectorFileNames = injectorFileNames,
+            source,
+        )
+
+        Assert.assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode)
+
+        val injectionInstanceClassName1ProcessedFile =
+            generatedFiles.firstOrNull { it.name == injectionInstanceClassName1Processed.plus(".kt") }
+
+        Assert.assertNotNull(
+            "Generated file($injectionInstanceClassName1Processed) should exist",
+            injectionInstanceClassName1ProcessedFile
+        )
+
+        val injectionInstanceClassName2ProcessedFile =
+            generatedFiles.firstOrNull { it.name == injectionInstanceClassName2Processed.plus(".kt") }
+
+        Assert.assertNotNull(
+            "Generated file($injectionInstanceClassName2Processed) should exist",
+            injectionInstanceClassName2ProcessedFile
+        )
+
+
+        val className1Content = injectionInstanceClassName1ProcessedFile!!.readText()
+        Assert.assertTrue(className1Content.contains("package $pkgName"))
+        Assert.assertTrue(className1Content.contains("object $injectionInstanceClassName1"))
+        Assert.assertTrue(className1Content.contains("fun inject(target: $injectionInstanceClassName1)"))
+        Assert.assertTrue(className1Content.contains("target.name = Any() as kotlin.String"))
+        Assert.assertTrue(className1Content.contains("target.tags = List(3) { Any() as kotlin.String }"))
+
+
+        val className2Content = injectionInstanceClassName2ProcessedFile!!.readText()
+        Assert.assertTrue(className2Content.contains("package $pkgName"))
+        Assert.assertTrue(className2Content.contains("object $injectionInstanceClassName2"))
+        Assert.assertTrue(className2Content.contains("fun inject(target: $injectionInstanceClassName2)"))
+        Assert.assertTrue(className2Content.contains("target.name = Any() as kotlin.String"))
+        Assert.assertTrue(className2Content.contains("target.tags = List(3) { Any() as kotlin.String }"))
+
+    }
+
+    @Test
+    fun testProcessorHandlesImmutablePropertiesWithWarning() {
+        val injectionInstanceClassName = "TestClass"
+        val injectionInstanceClassNameProcessed = injectionInstanceClassName.plus("Injector")
+        val injectorFileNames = listOf(
+            injectionInstanceClassNameProcessed.plus(".kt")
+        )
+        val pkgName = "com.example.test"
+        val source = SourceFile.kotlin(
+            "TestClass.kt", """
+            package $pkgName
+            
+            import com.reflect.instance.annotations.AutoInject
+            import com.reflect.instance.annotations.InjectInstance
+            
+            @InjectInstance
+            class $injectionInstanceClassName {
+                @AutoInject
+                lateinit var mutableProp: String
+                
+                @AutoInject
+                val immutableProp: String = "Cannot be injected"
+            }
+            """
+        )
+
+        val (result, generatedFiles) = processAndExtractGeneratedFiles(
+            injectorFileNames = injectorFileNames,
+            source,
+        )
+
+        Assert.assertEquals(KotlinCompilation.ExitCode.COMPILATION_ERROR, result.exitCode)
+
+    }
+
+    @Test
+    fun testProcessorHandlesCustomDataGeneratorParameter() {
+        val injectionInstanceClassName = "TestClass"
+        val injectionInstanceClassNameProcessed = injectionInstanceClassName.plus("Injector")
+        val injectorFileNames = listOf(
+            injectionInstanceClassNameProcessed.plus(".kt")
+        )
+        val pkgName = "com.example.test"
+        val dataGenerator = "generateFakeNames()"
+        val source = SourceFile.kotlin(
+            "TestClass.kt", """
+            package $pkgName
+            
+            import com.reflect.instance.annotations.AutoInject
+            import com.reflect.instance.annotations.InjectInstance
+            
+            @InjectInstance
+            class $injectionInstanceClassName {
+                @AutoInject(dataGenerator = "$dataGenerator")
+                lateinit var name: String
+                
+                @AutoInject(count = 3, dataGenerator = "$dataGenerator")
+                lateinit var tags: List<String>
+            }
+            """
+        )
+
+        val (result, generatedFiles) = processAndExtractGeneratedFiles(
+            injectorFileNames = injectorFileNames,
+            source,
+        )
+
+        Assert.assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode)
+
+        val injectionInstanceClassNameProcessedFile =
+            generatedFiles.firstOrNull { it.name == injectionInstanceClassNameProcessed.plus(".kt")}
+
+        Assert.assertNotNull(
+            "Generated file($injectionInstanceClassNameProcessed) should exist",
+            injectionInstanceClassNameProcessedFile
+        )
+
+        val fileContent = injectionInstanceClassNameProcessedFile!!.readText()
+        Assert.assertTrue(fileContent.contains("package $pkgName"))
+        Assert.assertTrue(fileContent.contains("/** $dataGenerator **/"))
+        Assert.assertTrue(fileContent.contains("target.name = /** $dataGenerator **/ Any() as kotlin.String"))
+        Assert.assertTrue(fileContent.contains("target.tags = /** $dataGenerator **/ List(3) { Any() as kotlin.String }"))
+    }
+
+    @Test
+    fun testProcessorHandlesComplexPropertyTypes() {
+        val injectionInstanceClassName = "TestClass"
+        val injectionInstanceClassNameProcessed = injectionInstanceClassName.plus("Injector")
+        val injectorFileNames = listOf(
+            injectionInstanceClassNameProcessed.plus(".kt")
+        )
+        val pkgName = "com.example.test"
+        val source = SourceFile.kotlin(
+            "TestClass.kt", """
+            package $pkgName
+            
+            import com.reflect.instance.annotations.AutoInject
+            import com.reflect.instance.annotations.InjectInstance
+            
+            data class ComplexType(val value: String)
+            
+            @InjectInstance
+            class $injectionInstanceClassName {
+                @AutoInject
+                lateinit var simpleType: String
+                
+                @AutoInject
+                lateinit var complexType: ComplexType
+                
+                @AutoInject(count = 2)
+                lateinit var complexList: List<ComplexType>
+                
+                @AutoInject
+                lateinit var nestedList: List<List<String>>
+            }
+            """
+        )
+
+        val (result, generatedFiles) = processAndExtractGeneratedFiles(
+            injectorFileNames = injectorFileNames,
+            source,
+        )
+
+        Assert.assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode)
+
+        val injectionInstanceClassNameProcessedFile =
+            generatedFiles.firstOrNull { it.name == injectionInstanceClassNameProcessed.plus(".kt")}
+
+        Assert.assertNotNull(
+            "Generated file($injectionInstanceClassNameProcessed) should exist",
+            injectionInstanceClassNameProcessedFile
+        )
+
+        val fileContent = injectionInstanceClassNameProcessedFile!!.readText()
+        println(fileContent)
+        Assert.assertTrue(fileContent.contains("target.simpleType = Any() as kotlin.String"))
+        Assert.assertTrue(fileContent.contains("target.complexType = Any() as $pkgName.ComplexType"))
+        Assert.assertTrue(fileContent.contains("target.complexList = List(2) { Any() as $pkgName.ComplexType }"))
+        // The nested list is treated as a simple List<List<String>> type
+        Assert.assertTrue(fileContent.contains("target.nestedList = Any() as kotlin.collections.List"))
+    }
+
+    @Test
+    fun testProcessorIgnoresClassesWithoutInjectInstanceAnnotation() {
+        val annotatedClassName = "AnnotatedClass"
+        val annotatedClassNameProcessed = annotatedClassName.plus("Injector")
+        val nonAnnotatedClassName = "NonAnnotatedClass"
+        val nonAnnotatedClassNameProcessed = nonAnnotatedClassName.plus("Injector")
+        val injectorFileNames = listOf(
+            annotatedClassNameProcessed.plus(".kt"),
+            nonAnnotatedClassNameProcessed.plus(".kt")
+        )
+        val pkgName = "com.example.test"
+        val source = SourceFile.kotlin(
+            "TestClasses.kt", """
+            package $pkgName
+            
+            import com.reflect.instance.annotations.AutoInject
+            import com.reflect.instance.annotations.InjectInstance
+            
+            @InjectInstance
+            class $annotatedClassName {
+                @AutoInject
+                lateinit var name: String
+            }
+            
+            class $nonAnnotatedClassName {
+                @AutoInject
+                lateinit var name: String
+            }
+            """
+        )
+
+        val (result, generatedFiles) = processAndExtractGeneratedFiles(
+            injectorFileNames = injectorFileNames,
+            source,
+        )
+
+        Assert.assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode)
+
+        // Should find the annotated class injector
+        val annotatedClassInjectorFile =
+            generatedFiles.firstOrNull { it.name == annotatedClassNameProcessed.plus(".kt")}
+        Assert.assertNotNull(
+            "Generated file for annotated class should exist",
+            annotatedClassInjectorFile
+        )
+
+        // Should not find the non-annotated class injector
+        val nonAnnotatedClassInjectorFile =
+            generatedFiles.firstOrNull { it.name == nonAnnotatedClassNameProcessed.plus(".kt")}
+        Assert.assertNull(
+            "Generated file for non-annotated class should not exist",
+            nonAnnotatedClassInjectorFile
+        )
+    }
+
+    @Test
+    fun testProcessorHandlesMultipleAnnotatedClasses() {
+        val className1 = "TestClass1"
+        val className2 = "TestClass2"
+        val className3 = "TestClass3"
+        val className1Processed = className1.plus("Injector")
+        val className2Processed = className2.plus("Injector")
+        val className3Processed = className3.plus("Injector")
+        val injectorFileNames = listOf(
+            className1Processed.plus(".kt"),
+            className2Processed.plus(".kt"),
+            className3Processed.plus(".kt")
+        )
+        val pkgName = "com.example.test"
+        val source = SourceFile.kotlin(
+            "TestClasses.kt", """
+            package $pkgName
+            
+            import com.reflect.instance.annotations.AutoInject
+            import com.reflect.instance.annotations.InjectInstance
+            
+            @InjectInstance
+            class $className1 {
+                @AutoInject
+                lateinit var prop1: String
+            }
+            
+            @InjectInstance
+            class $className2 {
+                @AutoInject
+                lateinit var prop2: Int
+            }
+            
+            @InjectInstance
+            class $className3 {
+                @AutoInject(count = 5)
+                lateinit var prop3: List<Double>
+            }
+            """
+        )
+
+        val (result, generatedFiles) = processAndExtractGeneratedFiles(
+            injectorFileNames = injectorFileNames,
+            source,
+        )
+
+        Assert.assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode)
+
+        // Check that all three injector files were generated
+        val file1 = generatedFiles.firstOrNull { it.name == className1Processed.plus(".kt")}
+        val file2 = generatedFiles.firstOrNull { it.name == className2Processed.plus(".kt")}
+        val file3 = generatedFiles.firstOrNull { it.name == className3Processed.plus(".kt")}
+
+        Assert.assertNotNull("Generated file for class1 should exist", file1)
+        Assert.assertNotNull("Generated file for class2 should exist", file2)
+        Assert.assertNotNull("Generated file for class3 should exist", file3)
+
+        // Verify content of each file
+        val content1 = file1!!.readText()
+        val content2 = file2!!.readText()
+        val content3 = file3!!.readText()
+
+        Assert.assertTrue(content1.contains("target.prop1 = Any() as kotlin.String"))
+        Assert.assertTrue(content2.contains("target.prop2 = Any() as kotlin.Int"))
+        Assert.assertTrue(content3.contains("target.prop3 = List(5) { Any() as kotlin.Double }"))
+    }
+
+    @Test
+    fun testProcessorHandlesClassWithNoAutoInjectProperties() {
+        val className = "EmptyClass"
+        val classNameProcessed = className.plus("Injector")
+        val injectorFileNames = listOf(
+            classNameProcessed.plus(".kt")
+        )
+        val pkgName = "com.example.test"
+        val source = SourceFile.kotlin(
+            "EmptyClass.kt", """
+            package $pkgName
+            
+            import com.reflect.instance.annotations.AutoInject
+            import com.reflect.instance.annotations.InjectInstance
+            
+            @InjectInstance
+            class $className {
+                // No @AutoInject properties
+                lateinit var name: String
+                var age: Int = 0
+            }
+            """
+        )
+
+        val (result, generatedFiles) = processAndExtractGeneratedFiles(
+            injectorFileNames = injectorFileNames,
+            source,
+        )
+
+        Assert.assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode)
+
+        // Should not find any generated injector file
+        val injectorFile = generatedFiles.firstOrNull { it.name == classNameProcessed.plus(".kt")}
+        Assert.assertNull(
+            "No file should be generated for class with no @AutoInject properties",
+            injectorFile
+        )
+    }
+
+    // Additional test case to cover private properties
+    @Test
+    fun testProcessorHandlesPrivateProperties() {
+        val className = "PrivatePropsClass"
+        val classNameProcessed = className.plus("Injector")
+        val injectorFileNames = listOf(
+            classNameProcessed.plus(".kt")
+        )
+        val pkgName = "com.example.test"
+        val source = SourceFile.kotlin(
+            "PrivatePropsClass.kt", """
+            package $pkgName
+            
+            import com.reflect.instance.annotations.AutoInject
+            import com.reflect.instance.annotations.InjectInstance
+            
+            @InjectInstance
+            class $className {
+                @AutoInject
+                lateinit var publicProp: String
+                
+                @AutoInject
+                private lateinit var privateProp: Int
+            }
+            """
+        )
+
+        val (result, generatedFiles) = processAndExtractGeneratedFiles(
+            injectorFileNames = injectorFileNames,
+            source,
+        )
+
+        Assert.assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode)
+
+        val injectorFile = generatedFiles.firstOrNull { it.name == classNameProcessed.plus(".kt")}
+        Assert.assertNotNull(
+            "Generated file should exist",
+            injectorFile
+        )
+
+        val fileContent = injectorFile!!.readText()
+        Assert.assertTrue(fileContent.contains("target.publicProp = Any() as kotlin.String"))
+        Assert.assertTrue(fileContent.contains("target.privateProp = Any() as kotlin.Int"))
+    }
 }

@@ -209,7 +209,7 @@ class AutoInstanceProcessor(
             .find { it.name?.asString() == "dataGenerator" }
             ?.value as? String ?: ""
 
-        return if (generator.isNullOrEmpty()) {
+        return if (generator.isEmpty()) {
             ""
         } else {
             "/** $generator **/"
@@ -238,10 +238,14 @@ class AutoInstanceProcessor(
             val argShortName = typeArg.declaration.simpleName.asString()
             val qualifiedName = typeArg.declaration.qualifiedName?.getQualifier().toString()
 
+            val format = if(dataGeneratorComment.isEmpty()) {
+                "target.%L = List(%L) { Any() as %L }"
+            } else {
+                "target.%L = $dataGeneratorComment List(%L) { Any() as %L }"
+            }
             funSpecBuilder.addStatement(
-                "target.%L = %L List(%L) { Any() as %L }",
+                format,
                 propertyName,
-                dataGeneratorComment,
                 count,
                 ClassName(qualifiedName, argShortName)
             )
@@ -259,11 +263,14 @@ class AutoInstanceProcessor(
     ) {
         val type = propertyType.declaration.simpleName.getShortName()
         val qualifiedName = propertyType.declaration.qualifiedName?.getQualifier().toString()
-
+        val format = if(dataGeneratorComment.isEmpty()) {
+            "target.%L = Any() as %L"
+        } else {
+            "target.%L = $dataGeneratorComment Any() as %L"
+        }
         funSpecBuilder.addStatement(
-            "target.%L = %L Any() as %L",
+            format,
             propertyName,
-            dataGeneratorComment,
             ClassName(qualifiedName, type)
         )
     }
