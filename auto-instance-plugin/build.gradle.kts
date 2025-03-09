@@ -99,3 +99,14 @@ tasks.withType<Test> {
     }
 }
 
+tasks.register("logTaskGraph") {
+    doLast {
+        gradle.taskGraph.whenReady {
+            println("Task execution order:")
+            allTasks.forEach {
+                println(it.path)
+            }
+        }
+    }
+}
+

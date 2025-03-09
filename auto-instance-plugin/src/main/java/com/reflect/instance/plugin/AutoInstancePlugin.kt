@@ -3,6 +3,7 @@ package com.reflect.instance.plugin
 import org.gradle.api.Plugin
 import org.gradle.api.Project
 import org.gradle.api.logging.Logging
+import org.gradle.api.tasks.TaskProvider
 import org.gradle.kotlin.dsl.create
 import org.gradle.kotlin.dsl.dependencies
 import org.gradle.kotlin.dsl.register
@@ -48,24 +49,27 @@ class ModelInstanceGeneratorPlugin : Plugin<Project> {
         logger.info("Task generateModelSamples registered")
 
         project.afterEvaluate {
-            val compileTasks = project.tasks.matching { it.name.contains("compile") && it.name.contains("Sources") }
-            val kspTasks = project.tasks.matching { it.name.startsWith("ksp") && it.name.endsWith("Kotlin") }
-            val generateTaskInstance = generateTask.get()
-
-            compileTasks.filterNotNull().forEach { compileTask ->
-                // Ensure all KSP tasks run before compiling sources
-                kspTasks.forEach { kspTask ->
-                    compileTask.dependsOn(kspTask)
-                    compileTask.mustRunAfter(kspTask)
-                }
-
-                // Ensure generateTask runs after compilation
-                generateTaskInstance.mustRunAfter(compileTask)
-                compileTask.finalizedBy(generateTaskInstance)
-            }
-
-            println("Model packages configured: ${extension.modelPackages}")
+            setPluginRunSequence(generateTask)
         }
 
     }
+}
+
+fun Project.setPluginRunSequence(generateTask: TaskProvider<GenerateModelSamplesTask>) {
+    val compileTasks = project.tasks.matching { it.name.contains("compile") && it.name.contains("Sources") }
+    val kspTasks = project.tasks.matching { it.name.startsWith("ksp") && it.name.endsWith("Kotlin") }
+    val generateTaskInstance = generateTask.get()
+
+    compileTasks.filterNotNull().forEach { compileTask ->
+        // Ensure all KSP tasks run before compiling sources
+        kspTasks.forEach { kspTask ->
+            compileTask.dependsOn(kspTask)
+            compileTask.mustRunAfter(kspTask)
+        }
+
+        // Ensure generateTask runs after compilation
+        generateTaskInstance.mustRunAfter(compileTask)
+        compileTask.finalizedBy(generateTaskInstance)
+    }
+
 }
