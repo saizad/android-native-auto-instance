@@ -49,6 +49,45 @@ class AutoInstanceProcessorTest {
     }
 
     @Test
+    fun testProcessorDoesNotGeneratesInjectorIfNoInjectInstanceAnnotation() {
+        val injectionInstanceClassName = "TestClass"
+        val injectionInstanceClassNameProcessed = injectionInstanceClassName.plus("Injector")
+        val injectorFileNames = listOf(
+            injectionInstanceClassNameProcessed.plus(".kt")
+        )
+        val pkgName = "com.example.test"
+        val source = SourceFile.kotlin(
+            "TestClass.kt", """
+            package $pkgName
+            
+            import com.reflect.instance.annotations.AutoInject
+            import com.reflect.instance.annotations.InjectInstance
+            
+            data class CustomType(val value: String)
+            
+            class $injectionInstanceClassName {
+                @AutoInject
+                lateinit var customType: CustomType
+                
+                @AutoInject(count = 3)
+                lateinit var customTypeList: List<CustomType>
+            }
+            """
+        )
+
+
+        val (result, generatedFiles) = processAndExtractGeneratedFiles(
+            injectorFileNames = injectorFileNames,
+            source,
+        )
+        Assert.assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode)
+        println(result.outputDirectory.absolutePath)
+        generatedFiles.forEach {
+            println(it.readText())
+        }
+    }
+
+    @Test
     fun testProcessorGeneratesInjectorForClassWithValidProperties() {
         val injectionInstanceClassName = "TestClass"
         val injectionInstanceClassNameProcessed = injectionInstanceClassName.plus("Injector")
@@ -81,7 +120,9 @@ class AutoInstanceProcessorTest {
             injectorFileNames = injectorFileNames,
             source,
         )
-
+        generatedFiles.forEach {
+            println(it.readText())
+        }
         Assert.assertEquals(KotlinCompilation.ExitCode.OK, result.exitCode)
 
         val injectionInstanceClassNameProcessedFile =

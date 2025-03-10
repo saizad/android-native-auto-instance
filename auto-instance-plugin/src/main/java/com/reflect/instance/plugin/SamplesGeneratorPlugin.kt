@@ -135,7 +135,7 @@ abstract class GenerateModelSamplesTask : DefaultTask() {
     }
 
     private fun findReflectInstanceJarFromGradleCache(): File? {
-        val reflectInstanceDependency = "com.github.saizad.android-native-auto-instance:reflect-instance:4ecbef0977"
+        val reflectInstanceDependency = "com.github.saizad.android-native-auto-instance:reflect-instance:f49afcf13b"
         return try {
             val dependencyNotation = reflectInstanceDependency
             val dependency = project.configurations.detachedConfiguration(
@@ -171,7 +171,7 @@ private fun Project.getKspGeneratedInjectorFiles(): List<File> {
 }
 
 
-private fun Project.getBuildVariant(): String {
+fun Project.getBuildVariant(): String {
     val defaultVariant = "debug" // Fallback option
     return project.gradle.startParameter.taskNames
         .map { it.substringAfterLast(":") }

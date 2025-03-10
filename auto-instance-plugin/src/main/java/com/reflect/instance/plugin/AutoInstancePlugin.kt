@@ -58,8 +58,18 @@ class ModelInstanceGeneratorPlugin : Plugin<Project> {
 }
 
 fun Project.setPluginRunSequence(generateTask: TaskProvider<GenerateModelSamplesTask>) {
-    val compileTasks = project.tasks.matching { it.name.contains("compile") && it.name.contains("Sources") }
-    val kspTasks = project.tasks.matching { it.name.startsWith("ksp") && it.name.endsWith("Kotlin") }
+
+    val compileTasks = project.tasks
+        .matching { it.name.contains("compile") && it.name.contains("Sources") }
+        .filter { it.name.contains(getBuildVariant()) }
+        .filter { !it.name.contains("Test") }
+
+    val kspTasks = project.tasks
+        .matching { it.name.startsWith("ksp") && it.name.endsWith("Kotlin") }
+        .filter { it.name.contains(getBuildVariant()) }
+        .filter { !it.name.contains("Test") }
+
+
     val generateTaskInstance = generateTask.get()
 
     compileTasks.filterNotNull().forEach { compileTask ->
