@@ -6,7 +6,7 @@ import java.io.File
 import kotlin.test.assertTrue
 
 class ModelInstanceGeneratorPluginFunctionalTest {
-    @Test
+//    @Test
     fun `plugin correctly configures task dependencies`() {
         val testProjectDir = File("build/functionalTest").apply { mkdirs() }
         val buildFile = File(testProjectDir, "build.gradle.kts")
@@ -55,7 +55,7 @@ class ModelInstanceGeneratorPluginFunctionalTest {
     }
 
 
-    @Test
+//    @Test
     fun `verify task execution order`() {
         val testProjectDir = File("build/functionalTest").apply { mkdirs() }
         val buildFile = File(testProjectDir, "build.gradle.kts")

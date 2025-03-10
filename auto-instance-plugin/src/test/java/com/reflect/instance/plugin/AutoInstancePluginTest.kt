@@ -75,6 +75,20 @@ class ModelInstanceGeneratorPluginTest {
         assertEquals(listOf("com.example.models"), generateTask?.modelPackages?.get())
     }
 
+    @Test
+    fun `extension defaultGenerator is correctly propagated`() {
+        val project = ProjectBuilder.builder().build()
+        project.pluginManager.apply("com.reflect.instance.model.plugin")
+
+        val extension = project.extensions.getByType(ModelInstanceGeneratorExtension::class.java)
+        extension.defaultGenerator = "com.example.models.DefGen"
+
+        val generateTask =
+            project.tasks.withType(GenerateModelSamplesTask::class.java).firstOrNull()
+        assertNotNull(generateTask)
+        assertEquals("com.example.models.DefGen", generateTask?.defaultGenerator)
+    }
+
 
     @Test
     fun `compile tasks depend on KSP tasks`() {

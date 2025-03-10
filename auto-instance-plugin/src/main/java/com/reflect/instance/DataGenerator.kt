@@ -5,7 +5,7 @@ import kotlin.reflect.KClass
 /**
  * Interface for context-aware data generators
  */
-interface DataGenerator {
+internal interface DataGenerator {
     /**
      * Generate a semantically appropriate value for a parameter
      * @param paramName The name of the parameter

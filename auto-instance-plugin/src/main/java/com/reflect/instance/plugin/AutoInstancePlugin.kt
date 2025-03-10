@@ -10,6 +10,7 @@ import org.gradle.kotlin.dsl.register
 
 open class ModelInstanceGeneratorExtension {
     var modelPackages: List<String> = emptyList()
+    var defaultGenerator: String? = null
 }
 
 class AutoInstancePlugin : Plugin<Project> {
@@ -45,6 +46,7 @@ class ModelInstanceGeneratorPlugin : Plugin<Project> {
 
         val generateTask = project.tasks.register<GenerateModelSamplesTask>("generateModelSamples") {
             modelPackages.set(extension.modelPackages)
+            defaultGenerator = extension.defaultGenerator
         }
         logger.info("Task generateModelSamples registered")
 

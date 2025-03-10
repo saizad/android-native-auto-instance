@@ -14,6 +14,7 @@ modelGenerator {
         "com.auto.instance.plugin.models",
         "com.auto.instance.plugin.models.school",
     )
+    defaultGenerator = "com.reflect.instance.sample.DefaultFakeDataGenerator"
 }
 
 android {

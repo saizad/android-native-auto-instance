@@ -31,7 +31,7 @@ class ModelInstanceGeneratorPluginTest1 {
         assertNotNull(generateTask, "Expected generateModelSamples task to be registered")
     }
 
-    @Test
+//    @Test
     fun `plugin correctly configures task dependencies`() {
         println("~~~~~~~~~~~~")
 

@@ -5,6 +5,7 @@ import org.gradle.api.GradleException
 import org.gradle.api.Project
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.tasks.Input
+import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.TaskAction
 import org.gradle.api.tasks.compile.JavaCompile
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
@@ -32,6 +33,10 @@ fun findCompiledClassDirectories(appProject: Project): List<File> {
 abstract class GenerateModelSamplesTask : DefaultTask() {
     @get:Input
     abstract val modelPackages: ListProperty<String>
+
+    @get:Input
+    @get:Optional
+    abstract var defaultGenerator: String?
 
     @TaskAction
     fun generate() {
@@ -84,6 +89,7 @@ abstract class GenerateModelSamplesTask : DefaultTask() {
         }
 
         val classesJar = findReflectInstanceJar()
+        logger.lifecycle("Found reflect-instance jar ${classesJar.name}")
         if (!classesJar.exists()) {
             throw GradleException("classes.jar not found inside extracted AAR!")
         }
@@ -91,8 +97,10 @@ abstract class GenerateModelSamplesTask : DefaultTask() {
         val fakeHelperClassLoader = URLClassLoader(arrayOf(classesJar.toURI().toURL()), javaClass.classLoader)
         val targetClass = fakeHelperClassLoader.loadClass("com.reflect.instance.FakeHelper")
         val instance = targetClass.getDeclaredConstructor().newInstance()
-
-        appProject.generateInstancesInKspInjectorFiles(instance, classLoader)
+        val defaultGeneratorInstance = defaultGenerator?.let {
+            Class.forName(it, true, classLoader).kotlin.createInstance()
+        }
+        appProject.generateInstancesInKspInjectorFiles(instance, classLoader, defaultGeneratorInstance)
         appProject.generateImportsInKspInjectorFiles(modelClassesByPackage.flatMap { (pkg, classes) ->
             classes.map { "$pkg.$it" }
         }.distinct().filter { "$" !in it })
@@ -101,25 +109,21 @@ abstract class GenerateModelSamplesTask : DefaultTask() {
     }
 
     private fun findReflectInstanceJar(): File {
-        return try {
-            findReflectInstanceJarFromAAR()
-        } catch (e: Exception) {
-            findLatestJar("reflect-instance/build/libs")
-                ?: throw GradleException("Reflect Instance JAR not found!")
-        }
+        return findReflectInstanceJarFromGradleCache()
+            ?: findLatestJar("reflect-instance/build/libs")
+            ?: findReflectInstanceJarFromAAR() ?: throw GradleException("Reflect Instance JAR not found!")
     }
 
-    private fun findReflectInstanceJarFromAAR(): File {
-        val aarFile = findLatestAAR("reflect-instance/build/outputs/aar")
+    private fun findReflectInstanceJarFromAAR(): File? {
+        val aarFile = findLatestAAR("reflect-instance/build/outputs/aar") ?: return null
         val tempDir = project.layout.buildDirectory.get().asFile.resolve("extracted-aar")
 
-        if (aarFile == null || !aarFile.exists()) {
-            throw GradleException("AAR file not found. Run ':reflect-instance:assembleDebug' first.")
+        project.copy {
+            from(project.zipTree(aarFile))
+            into(tempDir)
         }
 
-        project.copy { from(project.zipTree(aarFile)); into(tempDir) }
         return tempDir.resolve("classes.jar").takeIf { it.exists() }
-            ?: throw GradleException("Extracted classes.jar not found in AAR")
     }
 
     private fun findLatestJar(dir: String): File? {
@@ -129,6 +133,24 @@ abstract class GenerateModelSamplesTask : DefaultTask() {
     private fun findLatestAAR(dir: String): File? {
         return project.rootProject.file(dir).listFiles { file -> file.extension == "aar" }?.maxByOrNull { it.lastModified() }
     }
+
+    private fun findReflectInstanceJarFromGradleCache(): File? {
+        val reflectInstanceDependency = "com.github.saizad.android-native-auto-instance:reflect-instance:4ecbef0977"
+        return try {
+            val dependencyNotation = reflectInstanceDependency
+            val dependency = project.configurations.detachedConfiguration(
+                project.dependencies.create(dependencyNotation)
+            )
+            dependency.isTransitive = false
+
+            dependency.resolve().find { it.name.startsWith("reflect-instance") && it.extension == "jar" }
+        } catch (e: Exception) {
+            logger.warn("$reflectInstanceDependency not found")
+            logger.warn(e.message)
+            null
+        }
+    }
+
 }
 
 private fun Project.getKspGeneratedInjectorFiles(): List<File> {
@@ -163,6 +185,7 @@ private fun Project.getBuildVariant(): String {
 private fun Project.generateInstancesInKspInjectorFiles(
     fakeHelper: Any,
     classLoader: URLClassLoader,
+    defaultGenerator: Any?,
 ) {
     val generatedFiles = getKspGeneratedInjectorFiles()
 
@@ -191,11 +214,10 @@ private fun Project.generateInstancesInKspInjectorFiles(
                 val clazz = Class.forName(typeName, true, classLoader).kotlin
                 val fakeFunction = fakeHelper::class.memberFunctions.find { it.name == "fake" }
                 fakeFunction?.isAccessible = true
-                val generator = if (pkg != null) {
-                    Class.forName(pkg, true, classLoader).kotlin.createInstance()
-                } else {
-                    null
-                }
+                val generator = pkg?.let {
+                    Class.forName(it, true, classLoader).kotlin.createInstance()
+                } ?: defaultGenerator
+
                 val instance = (fakeFunction!!.call(fakeHelper, clazz, 1, generator) as List<*>).first()!!
                 val replacement = "$field = ${objectToString(instance)}"
                 modifiedContent = modifiedContent.replace(match.value, replacement)

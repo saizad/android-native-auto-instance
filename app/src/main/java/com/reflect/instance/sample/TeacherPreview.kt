@@ -1,5 +1,7 @@
 package com.reflect.instance.sample
 
+import com.auto.instance.plugin.models.ExelaTeacherAuth
+import com.auto.instance.plugin.models.Profile
 import com.auto.instance.plugin.models.Token
 import com.auto.instance.plugin.models.school.SchoolClassSection
 import com.auto.instance.plugin.models.school.SchoolClassTeach
@@ -17,4 +19,7 @@ class TeacherPreview {
 
     @AutoInject(dataGenerator = "com.auto.instance.plugin.generator.TokenDataGenerator")
     lateinit var tok: Token
+
+    @AutoInject
+    lateinit var profile: Profile
 } 
