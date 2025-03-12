@@ -11,6 +11,7 @@ import org.gradle.api.tasks.compile.JavaCompile
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
 import java.io.File
 import java.net.URLClassLoader
+import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
 import kotlin.reflect.full.createInstance
 import kotlin.reflect.full.memberFunctions
@@ -98,12 +99,14 @@ abstract class GenerateModelSamplesTask : DefaultTask() {
         val targetClass = fakeHelperClassLoader.loadClass("com.reflect.instance.FakeHelper")
         val instance = targetClass.getDeclaredConstructor().newInstance()
         val defaultGeneratorInstance = defaultGenerator?.let {
+            logger.lifecycle("Applying default generator $it")
             Class.forName(it, true, classLoader).kotlin.createInstance()
         }
-        appProject.generateInstancesInKspInjectorFiles(instance, classLoader, defaultGeneratorInstance)
-        appProject.generateImportsInKspInjectorFiles(modelClassesByPackage.flatMap { (pkg, classes) ->
-            classes.map { "$pkg.$it" }
-        }.distinct().filter { "$" !in it })
+        appProject.generateInstancesInKspInjectorFiles(
+            fakeHelper = instance,
+            classLoader = classLoader,
+            defaultGenerator = defaultGeneratorInstance
+        )
 
         logger.lifecycle("Model sample generation completed successfully.")
     }
@@ -135,6 +138,7 @@ abstract class GenerateModelSamplesTask : DefaultTask() {
     }
 
     private fun findReflectInstanceJarFromGradleCache(): File? {
+        return null
         val reflectInstanceDependency = "com.github.saizad.android-native-auto-instance:reflect-instance:f49afcf13b"
         return try {
             val dependencyNotation = reflectInstanceDependency
@@ -259,34 +263,6 @@ private fun Project.generateInstancesInKspInjectorFiles(
     }
 }
 
-private fun Project.generateImportsInKspInjectorFiles(
-    imports: List<String>,
-) {
-    val generatedFiles = getKspGeneratedInjectorFiles()
-
-    generatedFiles.forEach { generatedFile ->
-        val originalContent = generatedFile.readText()
-
-        val packageRegex = Regex("""^package\s+[a-zA-Z0-9_.]+""", RegexOption.MULTILINE)
-        val packageMatch = packageRegex.find(originalContent)
-        val packageDeclaration = packageMatch?.value ?: "package com.reflect.instance.sample"
-
-        val contentWithoutPackage = originalContent.replace(packageRegex, "").trim()
-
-        val newImports = imports.joinToString("\n") { "import $it" }
-
-        val newContent = buildString {
-            appendLine(packageDeclaration)
-            appendLine()
-            appendLine(newImports)
-            appendLine()
-            append(contentWithoutPackage)
-        }.trim()
-
-        generatedFile.writeText(newContent)
-    }
-}
-
 
 fun objectToString(obj: Any?): String {
     if (obj == null) return "null"
@@ -309,17 +285,19 @@ fun objectToString(obj: Any?): String {
             prefix = "mapOf(",
             postfix = ")"
         ) { "${objectToString(it.key)} to ${objectToString(it.value)}" }
-
-        is Enum<*> -> obj.name
+        is Enum<*> -> "${obj::class.simpleName}.${obj.name}"
         else -> {
             try {
                 val kClass = obj::class
+                val className = kClass.qualifiedName ?: kClass.toString()
                 val properties = kClass.memberProperties
-                if (properties.isEmpty()) return obj.toString()
-                properties.joinToString(
-                    prefix = "${kClass.simpleName}(",
-                    postfix = ")"
-                ) { "${it.name} = ${objectToString((it as KProperty1<Any, *>).get(obj))}" }
+                if (kClass.isData) {
+                    return properties.joinToString(
+                        prefix = "${className}(",
+                        postfix = ")"
+                    ) { "${it.name} = ${objectToString((it as KProperty1<Any, *>).get(obj))}" }
+                }
+                obj.toString() // Fallback
             } catch (e: Exception) {
                 obj.toString()
             }

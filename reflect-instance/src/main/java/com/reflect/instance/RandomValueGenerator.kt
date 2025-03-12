@@ -10,7 +10,7 @@ import kotlin.reflect.full.primaryConstructor
 class RandomValueGenerator {
 
     companion object {
-        internal const val MAX_RECURSION_DEPTH = 5
+        internal const val MAX_RECURSION_DEPTH = 20
         private const val NULL_PROBABILITY = 0.2
         private const val DEFAULT_STRING_LENGTH = 8
         private const val DEFAULT_COLLECTION_SIZE = 2
@@ -74,7 +74,7 @@ class RandomValueGenerator {
                 Set::class -> generateRandomSet(param, depth, parentClass, targetClass)
                 Map::class -> generateRandomMap(param, depth, parentClass, targetClass)
                 is KClass<*> -> {
-                    if ((classifier as KClass<*>).java.isEnum) {
+                    if (classifier.java.isEnum) {
                         generateRandomEnum(classifier)
                     } else {
                         generateRandomClassInstance(param, type, depth, parentClass, targetClass ?: classifier)
@@ -139,19 +139,23 @@ class RandomValueGenerator {
         private fun generateCollectionElement(elementType: KType?, depth: Int, parentClass: KClass<*>?, targetClass: KClass<*>?): Any? {
             if (elementType == null) return null
 
+            val newDepth = depth + 1
             return when (elementType.classifier) {
                 List::class -> generateNestedCollection(elementType, depth, parentClass, targetClass) { innerType ->
-                    generateListWithElementType(innerType, depth + 1, parentClass, targetClass)
+                    generateListWithElementType(innerType, newDepth, parentClass, targetClass)
                 }
                 Set::class -> generateNestedCollection(elementType, depth, parentClass, targetClass) { innerType ->
-                    generateSetWithElementType(innerType, depth + 1, parentClass, targetClass)
+                    generateSetWithElementType(innerType, newDepth, parentClass, targetClass)
                 }
                 Map::class -> {
                     val keyType = elementType.arguments.getOrNull(0)?.type
                     val valueType = elementType.arguments.getOrNull(1)?.type
-                    generateMapWithElementTypes(keyType, valueType, depth + 1, parentClass, targetClass)
+                    generateMapWithElementTypes(keyType, valueType,
+                        newDepth, parentClass, targetClass)
                 }
-                else -> generateValueFromType(elementType, depth + 1, parentClass, targetClass)
+                else -> {
+                    generateValueFromType(elementType, newDepth, parentClass, targetClass)
+                }
             }
         }
 
@@ -167,7 +171,7 @@ class RandomValueGenerator {
         }
 
         fun generateRandomClassInstance(param: KParameter, kType: KType?, depth: Int, parentClass: KClass<*>?, targetClass: KClass<*>?): Any? {
-            if (depth > MAX_RECURSION_DEPTH) return generateDefaultValue(kType)
+            if (depth > MAX_RECURSION_DEPTH) throw Exception("Max depth at $MAX_RECURSION_DEPTH only allowed")
             val type = kType ?: param.type
             val kClass = type.classifier as? KClass<*> ?: return null
 
@@ -209,7 +213,7 @@ class RandomValueGenerator {
         }
 
         fun generateDefaultValue(type: KType?): Any {
-            if (type == null) return ""
+            if (type == null) return "" // TODO: "Don't pass string for any type"
             val classifier = type.classifier as? KClass<*> ?: return ""
 
             return defaultValues[classifier] ?: when {
@@ -266,7 +270,6 @@ class RandomValueGenerator {
                 override val name: String = "dummy"
                 override val type: KType = type
             }
-
             return generateRandomValue(dummyParam, type, depth, parentClass, targetClass)
         }
     }

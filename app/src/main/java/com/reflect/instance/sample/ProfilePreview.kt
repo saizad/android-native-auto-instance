@@ -1,5 +1,6 @@
 package com.reflect.instance.sample
 
+import com.auto.instance.plugin.models.Profile
 import com.auto.instance.plugin.models.school.School
 import com.auto.instance.plugin.models.Token
 import com.reflect.instance.annotations.AutoInject
@@ -15,7 +16,8 @@ class ProfilePreview {
     lateinit var token: Token
 
     @AutoInject
-    lateinit var token1: Token
+    lateinit var profile: Profile
+
     @AutoInject(count = 12)
     lateinit var tkn: List<Token>
     @AutoInject(count = 5, dataGenerator = "com.auto.instance.plugin.generator.TokenDataGenerator")
@@ -25,6 +27,8 @@ class ProfilePreview {
 
     @AutoInject(dataGenerator = "com.auto.instance.plugin.generator.TokenDataGenerator")
     var refreshToken: Token? = null
+
+
 
 
 } 

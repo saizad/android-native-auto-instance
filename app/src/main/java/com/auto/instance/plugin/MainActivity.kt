@@ -12,6 +12,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.auto.instance.plugin.ui.theme.AutoInstancePluginTheme
+import com.reflect.instance.sample.ProfilePreview
+import com.reflect.instance.sample.ProfilePreviewInjector
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -41,7 +43,12 @@ fun Greeting(name: String, modifier: Modifier = Modifier) {
 @Preview(showBackground = true)
 @Composable
 fun GreetingPreview() {
+
+    val profilePreview = ProfilePreview().apply {
+        ProfilePreviewInjector.inject(this)
+    }
+
     AutoInstancePluginTheme {
-        Greeting("Android")
+        Greeting("Profile(${profilePreview.profile.id}) Genderx = ${profilePreview.profile.gender}")
     }
 }

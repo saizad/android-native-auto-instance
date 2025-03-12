@@ -14,7 +14,8 @@ object SemanticDataGenerator {
         
         // Check if we can determine the type from the parameter name
         return when {
-            // Names
+            name.contains("gender") -> listOf("Male", "Female").random()
+
             name.contains("fullname") || name == "name" ->
                 "${RandomDataValues.firstNames.random()} ${RandomDataValues.lastNames.random()}"
 
