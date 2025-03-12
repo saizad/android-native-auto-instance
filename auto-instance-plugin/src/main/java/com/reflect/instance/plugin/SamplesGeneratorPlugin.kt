@@ -243,11 +243,10 @@ private fun Project.generateInstancesInKspInjectorFiles(
                 val fakeFunction = fakeHelper::class.memberFunctions.find { it.name == "fake" }
                 fakeFunction?.isAccessible = true
 
-                val generator = if (pkg != null) {
-                    Class.forName(pkg, true, classLoader).kotlin.createInstance()
-                } else {
-                    null
-                }
+                val generator = pkg?.let {
+                    Class.forName(it, true, classLoader).kotlin.createInstance()
+                } ?: defaultGenerator
+
                 val instances = (fakeFunction!!.call(fakeHelper, clazz, size, generator) as List<*>)
 
                 val replacement = "$field = ${objectToString(instances)}"
