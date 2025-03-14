@@ -16,6 +16,7 @@ import kotlin.reflect.KProperty1
 import kotlin.reflect.full.createInstance
 import kotlin.reflect.full.memberFunctions
 import kotlin.reflect.full.memberProperties
+import kotlin.reflect.full.primaryConstructor
 import kotlin.reflect.jvm.isAccessible
 
 fun findCompiledClassDirectories(appProject: Project): List<File> {
@@ -288,10 +289,14 @@ fun objectToString(obj: Any?): String {
             try {
                 val kClass = obj::class
                 val className = kClass.qualifiedName ?: kClass.toString()
-                val properties = kClass.memberProperties
+                val constructorParams = kClass.primaryConstructor?.parameters?.map { it.name }?.toSet() ?: emptySet()
+
                 if (kClass.isData) {
-                    return properties.joinToString(
-                        prefix = "${className}(",
+                    val filteredProperties = kClass.memberProperties
+                        .filter { it.name in constructorParams } // 🔥 Only constructor properties
+
+                    return filteredProperties.joinToString(
+                        prefix = "$className(",
                         postfix = ")"
                     ) { "${it.name} = ${objectToString((it as KProperty1<Any, *>).get(obj))}" }
                 }

@@ -6,7 +6,17 @@ import kotlin.reflect.KClass
  * Registry and strategy selector for data generators
  */
 object DataGeneratorRegistry {
-    private val generators = mutableListOf<DataGenerator>(DefaultDataGenerator())
+    private var globalDefaultGenerator: DataGenerator = DefaultDataGenerator()
+    private val defaultGenerator: DataGenerator = DefaultDataGenerator() // Singleton instance
+    private val generators = mutableListOf<DataGenerator>(globalDefaultGenerator)
+
+    /**
+     * Set a global default generator. This will be used when no custom generator is provided.
+     * @param generator The generator to be used as the global default
+     */
+    fun setGlobalDefaultGenerator(generator: DataGenerator) {
+        globalDefaultGenerator = generator
+    }
 
     /**
      * Register a custom data generator
@@ -22,32 +32,38 @@ object DataGeneratorRegistry {
     }
 
     /**
-     * Clear all registered generators except the default one
+     * Clear all registered generators except the global default one
      */
     fun resetToDefault() {
         generators.clear()
-        generators.add(DefaultDataGenerator())
+        generators.add(globalDefaultGenerator)
+    }
+
+    /**
+     * Get the currently active global default generator
+     */
+    fun getGlobalDefaultGenerator(): DataGenerator {
+        return globalDefaultGenerator
     }
 
     /**
      * Try to generate a value using registered generators
-     * @param paramName The name of the parameter
-     * @param paramType The classifier of the parameter type
-     * @param parentClass The class containing the parameter
-     * @param targetClass The class being instantiated
-     * @return The first non-null value generated, or null if no generator can handle the parameter
+     * If all generators return null, fall back to a shared instance of DefaultDataGenerator
      */
     fun generateValue(
         paramName: String, paramType: Any?,
         parentClass: KClass<*>? = null,
         targetClass: KClass<*>? = null
     ): Any? {
+        // Try all registered generators
         for (generator in generators) {
             val value = generator.generateValue(paramName, paramType, parentClass, targetClass)
             if (value != null) {
                 return value
             }
         }
-        return null
+
+        // If no generator provided a value, use the shared instance of DefaultDataGenerator
+        return defaultGenerator.generateValue(paramName, paramType, parentClass, targetClass)
     }
 }

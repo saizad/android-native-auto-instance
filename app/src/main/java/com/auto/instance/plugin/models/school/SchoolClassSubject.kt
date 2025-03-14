@@ -5,4 +5,7 @@ data class SchoolClassSubject(
     val id: Int,
     val name: String,
     val icon: String?,
-)
+) {
+
+    val section = "Div B"
+}

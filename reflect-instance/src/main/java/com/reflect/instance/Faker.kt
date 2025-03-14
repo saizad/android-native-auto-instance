@@ -5,34 +5,26 @@ import kotlin.reflect.KClass
 
 
 fun <T : Any> KClass<T>.fake(generator: DataGenerator? = null): T {
-    if (generator != null) {
-        DataGeneratorRegistry.registerGenerator(generator, true)
-    }
+    val effectiveGenerator = generator ?: DataGeneratorRegistry.getGlobalDefaultGenerator()
+    DataGeneratorRegistry.registerGenerator(effectiveGenerator, prepend = true)
+
     try {
-        return fake(1, generator).first()
+        return fake(1, effectiveGenerator).first()
     } finally {
-        if (generator != null) {
-            DataGeneratorRegistry.resetToDefault()
-        }
+        DataGeneratorRegistry.resetToDefault()
     }
 }
 
 fun <T : Any> KClass<T>.fake(count: Int, generator: DataGenerator? = null): List<T> {
-    if (generator != null) {
-        DataGeneratorRegistry.registerGenerator(generator, true)
-    }
+    val effectiveGenerator = generator ?: DataGeneratorRegistry.getGlobalDefaultGenerator()
+    DataGeneratorRegistry.registerGenerator(effectiveGenerator, prepend = true)
+
     try {
         return (0 until count).map {
-            try {
-                createRandomObject(this)
-                    ?: throw IllegalArgumentException("Failed to create an instance of $this")
-            } catch (e: IllegalArgumentException) {
-                throw e
-            }
+            createRandomObject(this)
+                ?: throw IllegalArgumentException("Failed to create an instance of $this")
         }
     } finally {
-        if (generator != null) {
-            DataGeneratorRegistry.resetToDefault()
-        }
+        DataGeneratorRegistry.resetToDefault()
     }
 }

@@ -67,7 +67,7 @@ class DefaultFakeDataGenerator : DataGenerator {
 
         if (parentClass?.simpleName == "School") {
             when (paramName) {
-                "name" -> return topColleges.random()
+                "title" -> return topColleges.random()
             }
         }
 
