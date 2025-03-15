@@ -139,7 +139,7 @@ abstract class GenerateModelSamplesTask : DefaultTask() {
     }
 
     private fun findReflectInstanceJarFromGradleCache(): File? {
-        val reflectInstanceDependency = "com.github.saizad.android-native-auto-instance:reflect-instance:08279119d9"
+        val reflectInstanceDependency = "com.github.saizad.android-native-auto-instance:reflect-instance:1626db3735"
         return try {
             val dependencyNotation = reflectInstanceDependency
             val dependency = project.configurations.detachedConfiguration(
