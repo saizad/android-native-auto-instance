@@ -21,6 +21,7 @@ import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.ksp.toClassName
 import com.squareup.kotlinpoet.ksp.writeTo
+import java.io.File
 
 /**
  * Processes classes annotated with @InjectInstance and generates injector classes
@@ -31,6 +32,9 @@ class AutoInstanceProcessor(
     private val logger: KSPLogger,
     private val options: Map<String, String>
 ) : SymbolProcessor {
+    private val taskName: String = options["gradleTaskName"] ?: ""
+    private val rootDir: String? = options["rootDir"]
+    private val kspGeneratedDir = File("app/build/generated/ksp")
 
     // Cache annotation names to avoid repeated lookups
     private val autoInjectQualifiedName = AutoInject::class.qualifiedName!!
@@ -44,6 +48,23 @@ class AutoInstanceProcessor(
     )
 
     override fun process(resolver: Resolver): List<KSAnnotated> {
+
+        val compileTask =
+            taskName.contains("compile")
+                    && taskName.contains("Sources")
+                    && !taskName.contains("Test")
+
+        if (!compileTask && taskName != "build") {
+            val isKspDirEmpty = kspGeneratedDir.listFiles()?.isEmpty() == true
+            val backupDir = File("$rootDir/ksp_backup")
+            if (isKspDirEmpty && backupDir.exists()) {
+                backupDir.copyRecursively(kspGeneratedDir, overwrite = true)
+                backupDir.deleteRecursively()
+                logger.info("♷ Recycled")
+            }
+            return emptyList()
+        }
+
         val injectInstanceClasses = findAnnotatedClasses(resolver)
 
         if (injectInstanceClasses.isEmpty()) {
@@ -100,7 +121,12 @@ class AutoInstanceProcessor(
         // Generate the injector class file even if there are no valid properties
         // This ensures the test assertions pass
         try {
-            val fileSpec = generateInjectorFile(packageName, generatedClassName, classDeclaration, validTypeProperties)
+            val fileSpec = generateInjectorFile(
+                packageName,
+                generatedClassName,
+                classDeclaration,
+                validTypeProperties
+            )
             fileSpec.writeTo(codeGenerator, Dependencies(true, classDeclaration.containingFile!!))
             logger.info("Successfully generated injector file for ${classDeclaration.qualifiedName?.asString()}")
         } catch (e: Exception) {
@@ -284,7 +310,13 @@ class AutoInstanceProcessor(
 
         // Generate code based on property type
         if (isList(propertyType)) {
-            addListPropertyInjection(funSpecBuilder, propertyName, propertyType, count, dataGenerator)
+            addListPropertyInjection(
+                funSpecBuilder,
+                propertyName,
+                propertyType,
+                count,
+                dataGenerator
+            )
         } else {
             addSimplePropertyInjection(funSpecBuilder, propertyName, propertyType, dataGenerator)
         }
@@ -346,7 +378,7 @@ class AutoInstanceProcessor(
             val argShortName = typeArg.declaration.simpleName.asString()
             val qualifiedName = typeArg.declaration.qualifiedName?.getQualifier().toString()
 
-            val format = if(dataGeneratorComment.isEmpty()) {
+            val format = if (dataGeneratorComment.isEmpty()) {
                 "target.%L = List(%L) { Any() as %L }"
             } else {
                 "target.%L = $dataGeneratorComment List(%L) { Any() as %L }"
@@ -371,7 +403,7 @@ class AutoInstanceProcessor(
     ) {
         val type = propertyType.declaration.simpleName.getShortName()
         val qualifiedName = propertyType.declaration.qualifiedName?.getQualifier().toString()
-        val format = if(dataGeneratorComment.isEmpty()) {
+        val format = if (dataGeneratorComment.isEmpty()) {
             "target.%L = Any() as %L"
         } else {
             "target.%L = $dataGeneratorComment Any() as %L"
