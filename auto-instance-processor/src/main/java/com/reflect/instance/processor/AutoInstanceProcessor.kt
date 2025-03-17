@@ -54,13 +54,18 @@ class AutoInstanceProcessor(
                     && taskName.contains("Sources")
                     && !taskName.contains("Test")
 
+        val isKspDirEmpty = kspGeneratedDir.listFiles()?.isEmpty() == true
+        val backupDir = File("$rootDir/ksp_backup")
+
+        println("kspDir=${kspGeneratedDir.absolutePath}")
+        println("backupDir=${backupDir.absolutePath}")
+        println("taskName=$taskName compileTask=$compileTask isKspDirEmpty=$isKspDirEmpty backupDirExists=${backupDir.exists()} ")
         if (!compileTask && taskName != "build") {
-            val isKspDirEmpty = kspGeneratedDir.listFiles()?.isEmpty() == true
-            val backupDir = File("$rootDir/ksp_backup")
             if (isKspDirEmpty && backupDir.exists()) {
                 backupDir.copyRecursively(kspGeneratedDir, overwrite = true)
                 backupDir.deleteRecursively()
                 logger.info("♷ Recycled")
+                println("♷ Recycled")
             }
             return emptyList()
         }
