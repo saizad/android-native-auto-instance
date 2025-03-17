@@ -12,8 +12,10 @@ java {
 
 
 dependencies {
-    implementation(libs.org.jetbrains.kotlin.kotlin.reflect)
-    testImplementation(libs.junit)
+//    implementation(libs.org.jetbrains.kotlin.kotlin.reflect)
+    implementation("org.jetbrains.kotlin:kotlin-reflect:1.8.22")
+
+//    testImplementation(libs.junit)
 }
 
 // Set group and version explicitly for this project

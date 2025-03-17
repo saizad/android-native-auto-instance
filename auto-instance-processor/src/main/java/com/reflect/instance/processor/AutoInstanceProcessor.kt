@@ -34,7 +34,6 @@ class AutoInstanceProcessor(
 ) : SymbolProcessor {
     private val taskName: String = options["gradleTaskName"] ?: ""
     private val rootDir: String? = options["rootDir"]
-    private val kspGeneratedDir = File("app/build/generated/ksp")
 
     // Cache annotation names to avoid repeated lookups
     private val autoInjectQualifiedName = AutoInject::class.qualifiedName!!
@@ -54,9 +53,11 @@ class AutoInstanceProcessor(
                     && taskName.contains("Sources")
                     && !taskName.contains("Test")
 
+        val kspGeneratedDir = File("$rootDir/app/build/generated/ksp")
+
         val isKspDirEmpty = kspGeneratedDir.listFiles()?.isEmpty() == true
         val backupDir = File("$rootDir/ksp_backup")
-
+        println("^^^^^^^^^^$rootDir^^^^^^^^^^")
         println("kspDir=${kspGeneratedDir.absolutePath}")
         println("backupDir=${backupDir.absolutePath}")
         println("taskName=$taskName compileTask=$compileTask isKspDirEmpty=$isKspDirEmpty backupDirExists=${backupDir.exists()} ")
