@@ -71,9 +71,6 @@ fun Project.setPluginRunSequence(generateTask: TaskProvider<GenerateModelSamples
 
     val kspGeneratedDir = project.layout.buildDirectory.get().asFile.resolve("generated/ksp")
     val backupDir = file("$rootDir/ksp_backup") // Store outside `build/`
-    println("kspDir=${kspGeneratedDir.absolutePath}")
-    logger.lifecycle("backupDir=${backupDir.absolutePath}")
-    // Make sure KSP processor only runs for compile sources
     project.tasks.forEach {
         val cmd = project.gradle.startParameter.taskNames.firstOrNull() ?: ""
         val compileTask =
@@ -83,7 +80,6 @@ fun Project.setPluginRunSequence(generateTask: TaskProvider<GenerateModelSamples
         val regex = Regex("ksp(\\w+)(AndroidTest|UnitTest)?Kotlin")
 
         if (regex.containsMatchIn(it.name) && !compileTask) {
-            logger.lifecycle("Matched Task: ${it.name} calledBy=$cmd")
             if (kspGeneratedDir.exists() && cmd != "clean" && cmd != "build" && cmd.isNotEmpty()) {
                 backupDir.deleteRecursively()
                 kspGeneratedDir.copyRecursively(backupDir, overwrite = true)

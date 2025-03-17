@@ -32,6 +32,9 @@ class AutoInstanceProcessor(
     private val logger: KSPLogger,
     private val options: Map<String, String>
 ) : SymbolProcessor {
+    init {
+        logger.warn("options=${options["rootDir"]}")
+    }
     private val taskName: String = options["gradleTaskName"] ?: ""
     private val rootDir: String? = options["rootDir"]
 
@@ -55,18 +58,16 @@ class AutoInstanceProcessor(
 
         val kspGeneratedDir = File("$rootDir/app/build/generated/ksp")
 
-        val isKspDirEmpty = kspGeneratedDir.listFiles()?.isEmpty() == true
+        val fileCount = kspGeneratedDir.walk()
+            .filter { it.isFile }
+            .count()
+
         val backupDir = File("$rootDir/ksp_backup")
-        println("^^^^^^^^^^$rootDir^^^^^^^^^^")
-        println("kspDir=${kspGeneratedDir.absolutePath}")
-        println("backupDir=${backupDir.absolutePath}")
-        println("taskName=$taskName compileTask=$compileTask isKspDirEmpty=$isKspDirEmpty backupDirExists=${backupDir.exists()} ")
         if (!compileTask && taskName != "build") {
-            if (isKspDirEmpty && backupDir.exists()) {
+            if (fileCount == 0 && backupDir.exists()) {
                 backupDir.copyRecursively(kspGeneratedDir, overwrite = true)
                 backupDir.deleteRecursively()
-                logger.info("♷ Recycled")
-                println("♷ Recycled")
+                logger.warn("♷ Recycled")
             }
             return emptyList()
         }
