@@ -38,7 +38,6 @@ class InstanceCreator {
                         ?: throw IllegalArgumentException("Class ${kClass.simpleName} has no primary constructor")
 
                     val paramValues = constructor.parameters.associate {
-                        println(it.name)
                         it.name!! to generateRandomValue(it, null, 0, kClass, kClass)
                     }
                     createInstance(kClass, paramValues)
