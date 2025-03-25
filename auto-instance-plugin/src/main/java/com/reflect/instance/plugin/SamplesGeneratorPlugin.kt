@@ -130,21 +130,21 @@ abstract class GenerateModelSamplesTask : DefaultTask() {
 }
 
 private fun Project.getKspGeneratedInjectorFiles(): List<File> {
-    val variant = getBuildVariant()
     val kspDir = project.layout.buildDirectory.get().asFile.resolve("generated/ksp")
 
-    // Find the matching variant directory
-    val matchedVariantDir =
-        kspDir.listFiles()?.firstOrNull { it.name.equals(variant, ignoreCase = true) }
-            ?: throw GradleException("Could not determine the correct KSP directory for variant: $variant")
+    // Collect all variant directories inside kspDir
+    val variantDirs = kspDir.listFiles()?.filter { it.isDirectory } ?: emptyList()
 
-    val kotlinDir = matchedVariantDir.resolve("kotlin")
+    return variantDirs.flatMap { variantDir ->
+        val kotlinDir = variantDir.resolve("kotlin")
 
-    // Find all .kt files that end with "Injector"
-    return kotlinDir.walkTopDown()
-        .filter { it.isFile && it.extension == "kt" && it.name.endsWith("Injector.kt") }
-        .toList()
+        // Find all .kt files that end with "Injector"
+        kotlinDir.walkTopDown()
+            .filter { it.isFile && it.extension == "kt" && it.name.endsWith("Injector.kt") }
+            .toList()
+    }
 }
+
 
 
 fun Project.getBuildVariant(): String {
@@ -270,7 +270,7 @@ fun objectToString(obj: Any?): String {
                     val filteredProperties = kClass.memberProperties
                         .filter { it.name in constructorParams }
                         .map { it as KProperty1<Any, *> }
-                        .onEach { it.isAccessible = true } // 🔥 Make private properties accessible
+                        .onEach { it.isAccessible = true }
 
                     return filteredProperties.joinToString(
                         prefix = "$className(",

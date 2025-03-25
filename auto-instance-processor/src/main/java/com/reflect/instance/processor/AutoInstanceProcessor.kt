@@ -32,9 +32,7 @@ class AutoInstanceProcessor(
     private val logger: KSPLogger,
     private val options: Map<String, String>
 ) : SymbolProcessor {
-    init {
-        logger.warn("options=${options["rootDir"]}")
-    }
+
     private val taskName: String = options["gradleTaskName"] ?: ""
     private val rootDir: String? = options["rootDir"]
 
@@ -63,7 +61,7 @@ class AutoInstanceProcessor(
             .count()
 
         val backupDir = File("$rootDir/ksp_backup")
-        if (!compileTask && taskName != "build") {
+        if (compileTask && taskName != "build") {
             if (fileCount == 0 && backupDir.exists()) {
                 backupDir.copyRecursively(kspGeneratedDir, overwrite = true)
                 backupDir.deleteRecursively()
