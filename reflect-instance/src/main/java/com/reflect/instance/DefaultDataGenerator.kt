@@ -14,4 +14,20 @@ class DefaultDataGenerator : DataGenerator {
         // You could use parentClass and targetClass here for more specific generation
         return SemanticDataGenerator.generateSemanticValue(paramName.lowercase(), paramType)
     }
+
+    override fun preGenerateParentClass(parentClass: KClass<*>?): Any? {
+        return null
+    }
+
+    override fun postGenerateParentClass(parentClass: KClass<*>?, instance: Any?): Any? {
+        return instance
+    }
+
+    override fun preGenerateTargetClass(targetClass: KClass<*>?): Any? {
+        return null
+    }
+
+    override fun postGenerateTargetClass(targetClass: KClass<*>?, instance: Any?): Any? {
+        return instance
+    }
 }

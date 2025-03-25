@@ -75,6 +75,7 @@ object DataGeneratorRegistry {
         // If any generator returns an instance, use it
         for (generator in generators) {
             val instance = generator.preGenerateParentClass(parentClass)
+
             if (instance != null) {
                 return instance
             }

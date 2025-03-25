@@ -49,6 +49,6 @@ fun GreetingPreview() {
     }
 
     AutoInstancePluginTheme {
-        Greeting("Profile(${profilePreview.refreshToken}) Gender = ${profilePreview.refreshToken}")
+//        Greeting("Profile(${profilePreview.profile.id}) Gender = ${profilePreview.profile.gender}")
     }
 }

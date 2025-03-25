@@ -25,7 +25,7 @@ interface DataGenerator {
      * @param parentClass The class that contains the parameter (parameter owner)
      * @return An instance to use (skipping normal generation) or null to continue with normal generation
      */
-    fun preGenerateParentClass(parentClass: KClass<*>?): Any? = null
+    fun preGenerateParentClass(parentClass: KClass<*>?): Any?
 
     /**
      * Hook called after generating an instance of the parent class
@@ -33,14 +33,14 @@ interface DataGenerator {
      * @param instance The generated instance
      * @return The potentially modified instance or null to use the default
      */
-    fun postGenerateParentClass(parentClass: KClass<*>?, instance: Any?): Any? = instance
+    fun postGenerateParentClass(parentClass: KClass<*>?, instance: Any?): Any?
 
     /**
      * Hook called before generating an instance of the target class
      * @param targetClass The class being instantiated
      * @return An instance to use (skipping normal generation) or null to continue with normal generation
      */
-    fun preGenerateTargetClass(targetClass: KClass<*>?): Any? = null
+    fun preGenerateTargetClass(targetClass: KClass<*>?): Any?
 
     /**
      * Hook called after generating an instance of the target class
@@ -48,5 +48,5 @@ interface DataGenerator {
      * @param instance The generated instance
      * @return The potentially modified instance or null to use the default
      */
-    fun postGenerateTargetClass(targetClass: KClass<*>?, instance: Any?): Any? = instance
+    fun postGenerateTargetClass(targetClass: KClass<*>?, instance: Any?): Any?
 }

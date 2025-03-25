@@ -8,9 +8,9 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-//modelGenerator {
+modelGenerator {
 //    defaultGenerator = "com.reflect.instance.sample.DefaultFakeDataGenerator"
-//}
+}
 
 android {
     namespace = "com.reflect.instance.sample"

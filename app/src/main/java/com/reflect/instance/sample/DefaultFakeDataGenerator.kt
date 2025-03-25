@@ -79,4 +79,20 @@ class DefaultFakeDataGenerator : DataGenerator {
 
         return null
     }
+
+    override fun preGenerateTargetClass(targetClass: KClass<*>?): Any? {
+        return null
+    }
+
+    override fun preGenerateParentClass(parentClass: KClass<*>?): Any? {
+        return null
+    }
+
+    override fun postGenerateParentClass(parentClass: KClass<*>?, instance: Any?): Any? {
+        return instance
+    }
+
+    override fun postGenerateTargetClass(targetClass: KClass<*>?, instance: Any?): Any? {
+        return instance
+    }
 }
