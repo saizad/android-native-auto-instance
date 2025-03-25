@@ -24,7 +24,14 @@ class InstanceCreator {
         fun <T : Any> createRandomObject(kClass: KClass<T>): T? {
             recursionCounters.clear()
 
-            return when {
+            // Check if any generator provides a pre-made instance for this target class
+            val preTargetInstance = DataGeneratorRegistry.preGenerateTargetClass(kClass)
+            if (preTargetInstance != null) {
+                @Suppress("UNCHECKED_CAST")
+                return preTargetInstance as? T
+            }
+
+            val instance = when {
                 isPrimitiveOrWrapper(kClass) -> {
                     @Suppress("UNCHECKED_CAST")
                     generatePrimitiveValue(kClass) as T
@@ -37,12 +44,28 @@ class InstanceCreator {
                     val constructor = kClass.primaryConstructor
                         ?: throw IllegalArgumentException("Class ${kClass.simpleName} has no primary constructor")
 
+                    // Check if any generator provides a pre-made instance for this parent class
+                    val preParentInstance = DataGeneratorRegistry.preGenerateParentClass(kClass)
+                    if (preParentInstance != null) {
+                        @Suppress("UNCHECKED_CAST")
+                        return preParentInstance as? T
+                    }
+
                     val paramValues = constructor.parameters.associate {
                         it.name!! to generateRandomValue(it, null, 0, kClass, kClass)
                     }
-                    createInstance(kClass, paramValues)
+                    
+                    // Apply post processing hook for parent class
+                    @Suppress("UNCHECKED_CAST")
+                    val parentProcessedValues = DataGeneratorRegistry.postGenerateParentClass(kClass, paramValues) as? Map<String, Any?> ?: paramValues
+                    
+                    createInstance(kClass, parentProcessedValues)
                 }
             }
+
+            // Apply post processing hook for target class
+            @Suppress("UNCHECKED_CAST")
+            return DataGeneratorRegistry.postGenerateTargetClass(kClass, instance) as? T ?: instance
         }
     }
 }

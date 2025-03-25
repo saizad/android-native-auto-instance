@@ -175,6 +175,12 @@ class RandomValueGenerator {
             val type = kType ?: param.type
             val kClass = type.classifier as? KClass<*> ?: return null
 
+            // Check if any generator provides a pre-made instance for this target class
+            val preTargetInstance = DataGeneratorRegistry.preGenerateTargetClass(kClass)
+            if (preTargetInstance != null) {
+                return preTargetInstance
+            }
+
             // Handle recursion detection
             val currentCount = recursionCounters.getOrDefault(kClass, 0)
             if (currentCount >= 2) {
@@ -193,6 +199,12 @@ class RandomValueGenerator {
                     "Class ${kClass.simpleName} has no primary constructor"
                 )
 
+                // Check if any generator provides a pre-made instance for this parent class
+                val preParentInstance = DataGeneratorRegistry.preGenerateParentClass(kClass)
+                if (preParentInstance != null) {
+                    return preParentInstance
+                }
+
                 // Create parameter values map
                 val paramValues = constructor.parameters.associate { parameter ->
                     val value = if (parameter.type.classifier == kClass && parameter.type.isMarkedNullable && currentCount > 0) {
@@ -203,7 +215,14 @@ class RandomValueGenerator {
                     parameter.name!! to value
                 }
 
-                return createInstance(kClass, paramValues)
+                // Apply post processing hook for parent class
+                @Suppress("UNCHECKED_CAST")
+                val parentProcessedValues = DataGeneratorRegistry.postGenerateParentClass(kClass, paramValues) as? Map<String, Any?> ?: paramValues
+
+                val instance = createInstance(kClass, parentProcessedValues)
+                
+                // Apply post processing hook for target class
+                return DataGeneratorRegistry.postGenerateTargetClass(kClass, instance)
             } catch (e: Exception) {
                 return if (type.isMarkedNullable) null else generateDefaultValue(type)
             } finally {

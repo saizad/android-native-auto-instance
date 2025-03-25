@@ -66,4 +66,66 @@ object DataGeneratorRegistry {
         // If no generator provided a value, use the shared instance of DefaultDataGenerator
         return defaultGenerator.generateValue(paramName, paramType, parentClass, targetClass)
     }
+
+    /**
+     * Call pre-generation hook for parent class
+     * @return An instance to use (skipping normal generation) or null to continue with normal generation
+     */
+    fun preGenerateParentClass(parentClass: KClass<*>?): Any? {
+        // If any generator returns an instance, use it
+        for (generator in generators) {
+            val instance = generator.preGenerateParentClass(parentClass)
+            if (instance != null) {
+                return instance
+            }
+        }
+        return null
+    }
+
+    /**
+     * Call post-generation hook for parent class
+     * @return Modified instance or the original if no modifications
+     */
+    fun postGenerateParentClass(parentClass: KClass<*>?, instance: Any?): Any? {
+        var result = instance
+        // Apply all post generators in sequence
+        for (generator in generators) {
+            val modified = generator.postGenerateParentClass(parentClass, result)
+            if (modified != null) {
+                result = modified
+            }
+        }
+        return result
+    }
+
+    /**
+     * Call pre-generation hook for target class
+     * @return An instance to use (skipping normal generation) or null to continue with normal generation
+     */
+    fun preGenerateTargetClass(targetClass: KClass<*>?): Any? {
+        // If any generator returns an instance, use it
+        for (generator in generators) {
+            val instance = generator.preGenerateTargetClass(targetClass)
+            if (instance != null) {
+                return instance
+            }
+        }
+        return null
+    }
+
+    /**
+     * Call post-generation hook for target class
+     * @return Modified instance or the original if no modifications
+     */
+    fun postGenerateTargetClass(targetClass: KClass<*>?, instance: Any?): Any? {
+        var result = instance
+        // Apply all post generators in sequence
+        for (generator in generators) {
+            val modified = generator.postGenerateTargetClass(targetClass, result)
+            if (modified != null) {
+                result = modified
+            }
+        }
+        return result
+    }
 }
