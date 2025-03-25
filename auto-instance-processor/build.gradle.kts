@@ -14,21 +14,13 @@ dependencies {
     implementation(project(":auto-instance-annotations"))
     implementation(project(":reflect-instance"))
 
-//    implementation(libs.symbol.processing.api)
     implementation("com.google.devtools.ksp:symbol-processing-api:2.0.21-1.0.27")
     
-    // KotlinPoet for code generation
-//    implementation(libs.kotlinpoet)
     implementation("com.squareup:kotlinpoet:1.12.0")
-//    implementation(libs.kotlinpoet.ksp)
     implementation("com.squareup:kotlinpoet-ksp:1.14.2")
 
-//    testImplementation(libs.kotlin.compile.testing)
     testImplementation("com.github.tschuchortdev:kotlin-compile-testing:1.5.0")
-//    testImplementation(libs.kotlin.compile.testing.ksp)
     testImplementation("com.github.tschuchortdev:kotlin-compile-testing-ksp:1.5.0")
-//    testImplementation(libs.junit)
-//    testImplementation(libs.org.jetbrains.kotlin.kotlin.reflect)
     testImplementation("org.jetbrains.kotlin:kotlin-reflect:1.8.22")
 }
 

@@ -53,19 +53,19 @@ class ModelInstanceGeneratorPlugin : Plugin<Project> {
         val extension = project.extensions.create<ModelInstanceGeneratorExtension>("modelGenerator")
         logger.info("ModelInstanceGeneratorExtension registered")
 
-        val generateTask = project.tasks.register<GenerateModelSamplesTask>("generateModelSamples") {
+        project.tasks.register<GenerateModelSamplesTask>("generateModelSamples") {
             defaultGenerator = extension.defaultGenerator
         }
         logger.info("Task generateModelSamples registered")
 
         project.afterEvaluate {
-            setPluginRunSequence(generateTask)
+            setPluginRunSequence()
         }
 
     }
 }
 
-fun Project.setPluginRunSequence(generateTask: TaskProvider<GenerateModelSamplesTask>) {
+fun Project.setPluginRunSequence() {
 
     val kspGeneratedDir = project.layout.buildDirectory.get().asFile.resolve("generated/ksp")
     val backupDir = file("$rootDir/ksp_backup") // Store outside `build/`
@@ -77,7 +77,7 @@ fun Project.setPluginRunSequence(generateTask: TaskProvider<GenerateModelSamples
                     && !cmd.contains("Test")
         val regex = Regex("ksp(\\w+)(AndroidTest|UnitTest)?Kotlin")
 
-        if (regex.containsMatchIn(it.name) && !compileTask) {
+        if (regex.containsMatchIn(it.name) && compileTask) {
             if (kspGeneratedDir.exists() && cmd != "clean" && cmd != "build" && cmd.isNotEmpty()) {
                 backupDir.deleteRecursively()
                 kspGeneratedDir.copyRecursively(backupDir, overwrite = true)
@@ -98,8 +98,6 @@ fun Project.setPluginRunSequence(generateTask: TaskProvider<GenerateModelSamples
         .filter { !it.name.contains("Test") }
 
 
-    val generateTaskInstance = generateTask.get()
-
     compileTasks.filterNotNull().forEach { compileTask ->
         // Ensure all KSP tasks run before compiling sources
         kspTasks.forEach { kspTask ->
@@ -107,9 +105,6 @@ fun Project.setPluginRunSequence(generateTask: TaskProvider<GenerateModelSamples
             compileTask.mustRunAfter(kspTask)
         }
 
-        // Ensure generateTask runs after compilation
-        generateTaskInstance.mustRunAfter(compileTask)
-        compileTask.finalizedBy(generateTaskInstance)
     }
 
 }
