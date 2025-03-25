@@ -8,12 +8,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 }
 
-// Comment out the modelGenerator block for now
 modelGenerator {
-    modelPackages = listOf(
-        "com.auto.instance.plugin.models",
-        "com.auto.instance.plugin.models.school",
-    )
     defaultGenerator = "com.reflect.instance.sample.DefaultFakeDataGenerator"
 }
 

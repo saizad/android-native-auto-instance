@@ -12,7 +12,6 @@ import org.gradle.kotlin.dsl.register
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 open class ModelInstanceGeneratorExtension {
-    var modelPackages: List<String> = emptyList()
     var defaultGenerator: String? = null
 }
 
@@ -55,7 +54,6 @@ class ModelInstanceGeneratorPlugin : Plugin<Project> {
         logger.info("ModelInstanceGeneratorExtension registered")
 
         val generateTask = project.tasks.register<GenerateModelSamplesTask>("generateModelSamples") {
-            modelPackages.set(extension.modelPackages)
             defaultGenerator = extension.defaultGenerator
         }
         logger.info("Task generateModelSamples registered")

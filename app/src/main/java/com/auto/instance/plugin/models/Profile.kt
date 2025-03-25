@@ -11,4 +11,5 @@ data class Profile(
     val gender: String,
     val school: School,
     val schoolClassTeach: SchoolClassTeach,
+    private val username: String
 )

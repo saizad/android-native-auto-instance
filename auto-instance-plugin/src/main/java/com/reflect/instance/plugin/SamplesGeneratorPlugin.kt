@@ -33,8 +33,6 @@ fun findCompiledClassDirectories(appProject: Project): List<File> {
 }
 
 abstract class GenerateModelSamplesTask : DefaultTask() {
-    @get:Input
-    abstract val modelPackages: ListProperty<String>
 
     @get:Input
     @get:Optional
@@ -63,32 +61,6 @@ abstract class GenerateModelSamplesTask : DefaultTask() {
         val urls = classDirectories.map { it.toURI().toURL() }.toTypedArray()
         val classLoader = URLClassLoader(urls, this.javaClass.classLoader)
 
-        val modelClassesByPackage = mutableMapOf<String, MutableList<String>>()
-
-        modelPackages.get().forEach { modelPackage ->
-            val packagePath = modelPackage.replace('.', '/')
-            classDirectories.forEach { dir ->
-                val packageDir = dir.resolve(packagePath)
-                if (packageDir.exists() && packageDir.isDirectory) {
-                    packageDir.listFiles()?.forEach { file ->
-                        if (file.isFile && file.extension == "class") {
-                            val fullClassName = "$modelPackage.${file.nameWithoutExtension}"
-                            try {
-                                val clazz = Class.forName(fullClassName, true, classLoader).kotlin
-                                if (!clazz.isAbstract && !clazz.java.isInterface && !clazz.java.isAnonymousClass) {
-                                    modelClassesByPackage.getOrPut(modelPackage) { mutableListOf() }
-                                        .add(file.nameWithoutExtension)
-                                }
-                            } catch (e: NoClassDefFoundError) {
-                                logger.warn("Skipping $fullClassName due to missing dependency: ${e.message}")
-                            } catch (e: Exception) {
-                                logger.error("Skipping $fullClassName due to error: ${e.message}", e)
-                            }
-                        }
-                    }
-                }
-            }
-        }
 
         val classesJar = findReflectInstanceJar()
         logger.lifecycle("Found reflect-instance jar ${classesJar.name}")
@@ -139,6 +111,7 @@ abstract class GenerateModelSamplesTask : DefaultTask() {
     }
 
     private fun findReflectInstanceJarFromGradleCache(): File? {
+        return null
         val reflectInstanceDependency = "com.github.saizad.android-native-auto-instance:reflect-instance:2b2aaee939"
         return try {
             val dependencyNotation = reflectInstanceDependency
@@ -293,12 +266,14 @@ fun objectToString(obj: Any?): String {
 
                 if (kClass.isData) {
                     val filteredProperties = kClass.memberProperties
-                        .filter { it.name in constructorParams } // 🔥 Only constructor properties
+                        .filter { it.name in constructorParams }
+                        .map { it as KProperty1<Any, *> }
+                        .onEach { it.isAccessible = true } // 🔥 Make private properties accessible
 
                     return filteredProperties.joinToString(
                         prefix = "$className(",
                         postfix = ")"
-                    ) { "${it.name} = ${objectToString((it as KProperty1<Any, *>).get(obj))}" }
+                    ) { "${it.name} = ${objectToString(it.get(obj))}" }
                 }
                 obj.toString() // Fallback
             } catch (e: Exception) {

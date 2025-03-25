@@ -16,6 +16,9 @@ object SemanticDataGenerator {
         return when {
             name.contains("gender") -> listOf("Male", "Female").random()
 
+            name.contains("username") ->
+                "${RandomDataValues.firstNames.random().lowercase()}_${RandomDataValues.lastNames.random().lowercase()}"
+
             name.contains("fullname") || name == "name" ->
                 "${RandomDataValues.firstNames.random()} ${RandomDataValues.lastNames.random()}"
 
