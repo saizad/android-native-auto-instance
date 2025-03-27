@@ -49,6 +49,6 @@ fun GreetingPreview() {
     }
 
     AutoInstancePluginTheme {
-//        Greeting("Profile(${profilePreview.profile.id}) Gender = ${profilePreview.profile.gender}")
+        Greeting("Profile(${profilePreview.profile.id}) Gender = ${profilePreview.profile.gender}")
     }
 }

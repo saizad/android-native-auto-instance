@@ -84,14 +84,18 @@ object RandomDataValues {
     )
 
     val imageUrls = listOf(
-        "https://example.com/images/placeholder.jpg",
-        "https://placeholder.com/150x150",
-        "https://picsum.photos/200/300",
-        "https://via.placeholder.com/250x250",
-        "https://loremflickr.com/320/240",
-        "https://dummyimage.com/300x200/000/fff",
-        "https://placeimg.com/400/300/any",
-        "https://source.unsplash.com/random/200x200"
+        "https://reqres.in/img/faces/1-image.jpg",
+        "https://reqres.in/img/faces/2-image.jpg",
+        "https://reqres.in/img/faces/3-image.jpg",
+        "https://reqres.in/img/faces/4-image.jpg",
+        "https://reqres.in/img/faces/5-image.jpg",
+        "https://reqres.in/img/faces/6-image.jpg",
+        "https://reqres.in/img/faces/7-image.jpg",
+        "https://reqres.in/img/faces/8-image.jpg",
+        "https://reqres.in/img/faces/9-image.jpg",
+        "https://reqres.in/img/faces/10-image.jpg",
+        "https://reqres.in/img/faces/11-image.jpg",
+        "https://reqres.in/img/faces/12-image.jpg"
     )
 
     val iconUrls = listOf(

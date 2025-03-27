@@ -9,7 +9,7 @@ plugins {
 }
 
 modelGenerator {
-//    defaultGenerator = "com.reflect.instance.sample.DefaultFakeDataGenerator"
+    defaultGenerator = "com.reflect.instance.sample.DefaultFakeDataGenerator"
 }
 
 android {

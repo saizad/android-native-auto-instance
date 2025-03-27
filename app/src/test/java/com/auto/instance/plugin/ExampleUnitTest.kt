@@ -1,6 +1,7 @@
 package com.auto.instance.plugin
 
 import com.auto.instance.plugin.generator.TokenDataGenerator
+import com.auto.instance.plugin.models.AddressBlock
 import com.auto.instance.plugin.models.Profile
 import com.auto.instance.plugin.models.Token
 import com.auto.instance.plugin.models.school.School
@@ -19,6 +20,6 @@ class ExampleUnitTest {
     @Test
     fun addition_isCorrect() {
         assertEquals(4, 2 + 2)
-        println(Token::class.fake(TokenDataGenerator()))
+        println(Profile::class.fake())
     }
 }
