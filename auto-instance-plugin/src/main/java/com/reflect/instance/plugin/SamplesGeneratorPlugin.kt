@@ -240,7 +240,10 @@ fun objectToString(obj: Any?): String {
 
     return when (obj) {
         is String -> "\"$obj\""
-        is Number, is Boolean -> obj.toString()
+        is Number -> when (obj) {
+            is Float -> "${obj}f"
+            else -> obj.toString()
+        }
         is Char -> "'$obj'"
         is List<*> -> obj.joinToString(prefix = "listOf(", postfix = ")") { objectToString(it) }
         is Array<*> -> obj.joinToString(prefix = "Array(", postfix = ")") { objectToString(it) }
