@@ -130,7 +130,7 @@ abstract class GenerateModelSamplesTask : DefaultTask() {
 }
 
 private fun Project.getKspGeneratedInjectorFiles(): List<File> {
-    val variant = getBuildVariant()
+    val variant = "fakeDataDebug"// getBuildVariant()
     val kspDir = project.layout.buildDirectory.get().asFile.resolve("generated/ksp")
 
     // Find the matching variant directory

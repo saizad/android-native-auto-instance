@@ -53,9 +53,10 @@ class ModelInstanceGeneratorPlugin : Plugin<Project> {
         val extension = project.extensions.create<ModelInstanceGeneratorExtension>("modelGenerator")
         logger.info("ModelInstanceGeneratorExtension registered")
 
-        val generateTask = project.tasks.register<GenerateModelSamplesTask>("generateModelSamples") {
-            defaultGenerator = extension.defaultGenerator
-        }
+        val generateTask =
+            project.tasks.register<GenerateModelSamplesTask>("generateModelSamples") {
+                defaultGenerator = extension.defaultGenerator
+            }
         logger.info("Task generateModelSamples registered")
 
         project.afterEvaluate {
@@ -63,53 +64,31 @@ class ModelInstanceGeneratorPlugin : Plugin<Project> {
         }
 
     }
-}
 
-fun Project.setPluginRunSequence(generateTask: TaskProvider<GenerateModelSamplesTask>) {
+    fun Project.setPluginRunSequence(generateTask: TaskProvider<GenerateModelSamplesTask>) {
+        val compileKotlinTasks = tasks.matching {
+            it.name.startsWith("compile") && it.name.contains("Kotlin")
+        }
 
-    val kspGeneratedDir = project.layout.buildDirectory.get().asFile.resolve("generated/ksp")
-    val backupDir = file("$rootDir/ksp_backup") // Store outside `build/`
-    project.tasks.forEach {
-        val cmd = project.gradle.startParameter.taskNames.firstOrNull() ?: ""
-        val compileTask =
-            cmd.contains("compile")
-                    && cmd.contains("Sources")
-                    && !cmd.contains("Test")
-        val regex = Regex("ksp(\\w+)(AndroidTest|UnitTest)?Kotlin")
+        val kspTasks = tasks.matching {
+            it.name.startsWith("ksp") && it.name.endsWith("Kotlin")
+        }
 
-        if (regex.containsMatchIn(it.name) && !compileTask) {
-            if (kspGeneratedDir.exists() && cmd != "clean" && cmd != "build" && cmd.isNotEmpty()) {
-                backupDir.deleteRecursively()
-                kspGeneratedDir.copyRecursively(backupDir, overwrite = true)
-                kspGeneratedDir.deleteRecursively()
-                logger.lifecycle("♻️ Cleaned for recycle")
+        val generateTaskInstance = generateTask.get()
+
+        // Ensure generateModelSamples runs AFTER KSP (to get placeholder structure)
+        generateTaskInstance.mustRunAfter(kspTasks)
+
+        // Ensure generateModelSamples runs AFTER Kotlin compile (to reflect on classes)
+        generateTaskInstance.mustRunAfter(compileKotlinTasks)
+
+        // Let Kotlin compilation happen first
+        // Then generate real sample data
+        // Then anything that depends on samples can proceed
+        tasks.matching { it.name.contains("compile") && it.name.contains("Sources") }
+            .forEach { compileSourcesTask ->
+                compileSourcesTask.dependsOn(generateTaskInstance)
             }
-        }
-    }
-
-    val compileTasks = project.tasks
-        .matching { it.name.contains("compile") && it.name.contains("Sources") }
-        .filter { it.name.contains(getBuildVariant()) }
-        .filter { !it.name.contains("Test") }
-
-    val kspTasks = project.tasks
-        .matching { it.name.startsWith("ksp") && it.name.endsWith("Kotlin") }
-        .filter { it.name.contains(getBuildVariant()) }
-        .filter { !it.name.contains("Test") }
-
-
-    val generateTaskInstance = generateTask.get()
-
-    compileTasks.filterNotNull().forEach { compileTask ->
-        // Ensure all KSP tasks run before compiling sources
-        kspTasks.forEach { kspTask ->
-            compileTask.dependsOn(kspTask)
-            compileTask.mustRunAfter(kspTask)
-        }
-
-        // Ensure generateTask runs after compilation
-        generateTaskInstance.mustRunAfter(compileTask)
-        compileTask.finalizedBy(generateTaskInstance)
     }
 
 }

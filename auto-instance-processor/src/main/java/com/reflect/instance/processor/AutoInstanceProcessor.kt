@@ -50,28 +50,6 @@ class AutoInstanceProcessor(
     )
 
     override fun process(resolver: Resolver): List<KSAnnotated> {
-
-        val compileTask =
-            taskName.contains("compile")
-                    && taskName.contains("Sources")
-                    && !taskName.contains("Test")
-
-        val kspGeneratedDir = File("$rootDir/app/build/generated/ksp")
-
-        val fileCount = kspGeneratedDir.walk()
-            .filter { it.isFile }
-            .count()
-
-        val backupDir = File("$rootDir/ksp_backup")
-        if (!compileTask && taskName != "build") {
-            if (fileCount == 0 && backupDir.exists()) {
-                backupDir.copyRecursively(kspGeneratedDir, overwrite = true)
-                backupDir.deleteRecursively()
-                logger.warn("♷ Recycled")
-            }
-            return emptyList()
-        }
-
         val injectInstanceClasses = findAnnotatedClasses(resolver)
 
         if (injectInstanceClasses.isEmpty()) {
