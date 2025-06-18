@@ -3,7 +3,6 @@ package com.reflect.instance.plugin
 import org.gradle.api.DefaultTask
 import org.gradle.api.GradleException
 import org.gradle.api.Project
-import org.gradle.api.provider.ListProperty
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.Optional
 import org.gradle.api.tasks.TaskAction
@@ -11,7 +10,6 @@ import org.gradle.api.tasks.compile.JavaCompile
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
 import java.io.File
 import java.net.URLClassLoader
-import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
 import kotlin.reflect.full.createInstance
 import kotlin.reflect.full.memberFunctions
@@ -111,7 +109,7 @@ abstract class GenerateModelSamplesTask : DefaultTask() {
     }
 
     private fun findReflectInstanceJarFromGradleCache(): File? {
-        val reflectInstanceDependency = "com.github.saizad.android-native-auto-instance:reflect-instance:5ed9b22146"
+        val reflectInstanceDependency = "com.github.saizad.android-native-auto-instance:reflect-instance:v0.1.0"
         return try {
             val dependencyNotation = reflectInstanceDependency
             val dependency = project.configurations.detachedConfiguration(

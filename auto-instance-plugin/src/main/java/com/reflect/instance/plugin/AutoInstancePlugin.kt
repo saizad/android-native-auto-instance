@@ -76,15 +76,9 @@ class ModelInstanceGeneratorPlugin : Plugin<Project> {
 
         val generateTaskInstance = generateTask.get()
 
-        // Ensure generateModelSamples runs AFTER KSP (to get placeholder structure)
         generateTaskInstance.mustRunAfter(kspTasks)
-
-        // Ensure generateModelSamples runs AFTER Kotlin compile (to reflect on classes)
         generateTaskInstance.mustRunAfter(compileKotlinTasks)
 
-        // Let Kotlin compilation happen first
-        // Then generate real sample data
-        // Then anything that depends on samples can proceed
         tasks.matching { it.name.contains("compile") && it.name.contains("Sources") }
             .forEach { compileSourcesTask ->
                 compileSourcesTask.dependsOn(generateTaskInstance)
