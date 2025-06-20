@@ -233,7 +233,7 @@ private fun Project.generateInstancesInKspInjectorFiles(
 }
 
 
-fun objectToString(obj: Any?): String {
+fun Project.objectToString(obj: Any?): String {
     if (obj == null) return "null"
 
     return when (obj) {
@@ -262,20 +262,24 @@ fun objectToString(obj: Any?): String {
             try {
                 val kClass = obj::class
                 val className = kClass.qualifiedName ?: kClass.toString()
-                val constructorParams = kClass.primaryConstructor?.parameters?.map { it.name }?.toSet() ?: emptySet()
 
                 if (kClass.isData) {
-                    val filteredProperties = kClass.memberProperties
-                        .filter { it.name in constructorParams }
-                        .map { it as KProperty1<Any, *> }
-                        .onEach { it.isAccessible = true } // 🔥 Make private properties accessible
-
-                    return filteredProperties.joinToString(
-                        prefix = "$className(",
-                        postfix = ")"
-                    ) { "${it.name} = ${objectToString(it.get(obj))}" }
+                    try {
+                        val constructorParams = kClass.primaryConstructor?.parameters?.map { it.name }?.toSet() ?: emptySet()
+                        val filteredProperties = kClass.memberProperties
+                            .filter { it.name in constructorParams }
+                            .map { it as KProperty1<Any, *> }
+                            .onEach { it.isAccessible = true }
+                        return filteredProperties.joinToString(
+                            prefix = "$className(",
+                            postfix = ")"
+                        ) { "${it.name} = ${objectToString(it.get(obj))}" }
+                    } catch (e: NoClassDefFoundError) {
+                        logger.warn("ClassLoader issue with $className: ${e.message}")
+                        return obj.toString().replace(kClass.simpleName.toString(), className)
+                    }
                 }
-                obj.toString() // Fallback
+                obj.toString()
             } catch (e: Exception) {
                 obj.toString()
             }
